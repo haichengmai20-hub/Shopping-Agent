@@ -11,7 +11,6 @@
 from __future__ import annotations
 
 import json
-import fcntl
 import os
 import tempfile
 from contextlib import contextmanager
@@ -19,6 +18,8 @@ import hashlib
 import logging
 from pathlib import Path
 from typing import Optional
+
+import portalocker
 
 from app.domain.buyer.preference import BuyerPreference, PreferenceStore
 from app.domain.session.ports.conversation_store import (
@@ -53,11 +54,11 @@ class JsonFilePreferenceStore(PreferenceStore):
     @contextmanager
     def _lock(self, buyer_id):
         with self._path(buyer_id).with_suffix(".lock").open("a") as stream:
-            fcntl.flock(stream, fcntl.LOCK_EX)
+            portalocker.lock(stream, portalocker.LOCK_EX)
             try:
                 yield
             finally:
-                fcntl.flock(stream, fcntl.LOCK_UN)
+                portalocker.unlock(stream)
 
     async def append(self, preference: BuyerPreference) -> None:
         with self._lock(preference.buyer_id):
