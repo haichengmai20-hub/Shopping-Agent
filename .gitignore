@@ -50,8 +50,10 @@ node_modules/
 frontend/dist/
 *.tsbuildinfo
 
-# 设计文档、改动记录与图解仅在本地维护。
-/docs/
+# 上游把设计文档、改动记录与图解仅保留在本地（/docs/）。
+# 本仓库作为学习与求职作品仓库，改为随仓库发布，故不忽略 docs/。
+# 如需还原上游行为，在此处恢复一行 /docs/ 即可。
+!/docs/
 
 # 评测使用的临时买家/学习数据库只保留在本机。
 /eval/verification/**/isolated/
