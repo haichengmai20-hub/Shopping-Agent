@@ -113,6 +113,9 @@ class CapabilityRegistry:
               content_hash TEXT NOT NULL, timestamp TEXT NOT NULL)""")
             db.execute("""CREATE TABLE IF NOT EXISTS capability_sessions (
               session_id TEXT PRIMARY KEY, buyer_id TEXT NOT NULL, digest TEXT NOT NULL, created_at TEXT NOT NULL)""")
+            db.execute("""CREATE TABLE IF NOT EXISTS capability_session_policies (
+              session_id TEXT PRIMARY KEY REFERENCES capability_sessions(session_id),
+              policy_digest TEXT NOT NULL)""")
             yield db
             db.commit()
         except BaseException:
@@ -193,6 +196,37 @@ class CapabilityRegistry:
             self._audit(db, row, "publish", publisher, evidence)
             return self._metadata(self._row(db, kind, identifier, version))
 
+    def publish_learned(self, document, *, base, actor, evidence):
+        """学习服务完成审核后发布；基准 CAS 与注册表写入处于同一事务。"""
+        doc = validate(document)
+        actor, evidence = self._actor(actor), self._proof(evidence)
+        if doc['kind'] != 'strategy' or not doc['id'].startswith('learned-'):
+            raise CapabilityError('自动维护只允许 learned- 命名空间的系统策略')
+        raw = canonical(doc)
+        content_hash = hashlib.sha256(raw.encode()).hexdigest()
+        with self._transaction() as db:
+            existing = db.execute('SELECT * FROM capabilities WHERE kind=? AND id=? AND version=?', ('strategy', doc['id'], doc['version'])).fetchone()
+            if existing:
+                row = self._row(db, 'strategy', doc['id'], doc['version'])
+                if row['content_hash'] == content_hash and row['state'] == 'published':
+                    return self._metadata(row)
+                raise CapabilityError('目标版本已存在，不能覆盖或重新发布已撤销内容')
+            active = db.execute("SELECT * FROM capabilities WHERE kind='strategy' AND id=? AND state='published' ORDER BY published_at DESC LIMIT 1", (doc['id'],)).fetchone()
+            if base:
+                if not active or any(active[key] != base[key] for key in ('id', 'version', 'content_hash')):
+                    raise CapabilityError('策略基准版本已改变，请重新提炼和验证')
+                self._row(db, 'strategy', base['id'], base['version'])
+            elif active:
+                raise CapabilityError('新增策略 ID 已占用，必须显式指定基准版本')
+            if parse_time(doc['expires_at']) <= now():
+                raise CapabilityError('策略已过期')
+            stamp = now().isoformat()
+            db.execute("INSERT INTO capabilities(kind,id,version,content_hash,payload,state,author,created_at,reviewer,review_evidence,publisher,published_at) VALUES(?,?,?,?,?,'published',?,?,?,?,?,?)",
+                       ('strategy', doc['id'], doc['version'], content_hash, raw, actor, stamp, actor, evidence, actor, stamp))
+            row = self._row(db, 'strategy', doc['id'], doc['version'])
+            self._audit(db, row, 'publish_learned', actor, evidence)
+            return self._metadata(row)
+
     def revoke(self, kind, identifier, version, *, actor, reason):
         actor, reason = self._actor(actor), self._proof(reason)
         with self._transaction() as db:
@@ -222,12 +256,19 @@ class CapabilityRegistry:
                 result.append(item)
             return result
 
-    def load_skill(self, skill_id, version, *, available_tools, expected_digest=None):
+    def load_skill(self, skill_id, version, *, available_tools, expected_digest=None, require_current=False):
         with self._transaction() as db:
             self._check_digest(db, expected_digest)
             row = self._row(db, "skill", skill_id, version)
             if not self._active(row):
                 raise CapabilityError("Skill 未发布、已过期或已撤销")
+            if require_current:
+                candidates = db.execute("""SELECT * FROM capabilities WHERE kind='skill' AND id=?
+                    AND state='published' ORDER BY published_at DESC,id,version""", (skill_id,)).fetchall()
+                latest = next((r for r in candidates if self._active(r)
+                               and set(json.loads(r["payload"])["allowed_tools"]) <= set(available_tools)), None)
+                if latest is None or latest["version"] != version:
+                    raise CapabilityVersionChanged("Skill 已更新，请按当前目录选择明确版本")
             doc = json.loads(row["payload"])
             if not set(doc["allowed_tools"]) <= set(available_tools):
                 raise CapabilityError("Skill 依赖的工具在当前会话不可用；不会动态注册或提升权限")
@@ -285,8 +326,20 @@ class CapabilityRegistry:
         if expected_digest is not None and self._fingerprint(db) != expected_digest:
             raise CapabilityVersionChanged("本轮绑定的 Skill 或审核策略版本已变化；不能混用新资料与旧版本记录，请新建选购会话")
 
-    def bind_session(self, session_id, buyer_id):
-        """恢复 Agent 之前核对版本集合，禁止旧正文在撤销后进入新一轮模型上下文。"""
+    def _policy_fingerprint(self, db):
+        """普通 Skill 发布可热更新；策略变化、公共撤销/过期仍阻断旧会话。"""
+        items = []
+        for item in db.execute("SELECT * FROM capabilities ORDER BY kind,id,version").fetchall():
+            row = self._row(db, item["kind"], item["id"], item["version"])
+            if (row["kind"] == "strategy" and self._active(row)) or (
+                row["kind"] == "skill" and (row["state"] == "revoked" or
+                (row["state"] == "published" and not self._active(row)))
+            ):
+                items.append((row["kind"], row["id"], row["version"], row["state"], row["content_hash"]))
+        return hashlib.sha256(canonical(items).encode()).hexdigest()
+
+    def bind_session(self, session_id, buyer_id, *, allow_skill_updates=False):
+        """普通轮次可刷新资料；工具读取仍固定本轮 digest，强撤销与策略变更不放行。"""
         if not session_id or not buyer_id:
             raise CapabilityError("能力版本绑定需要可信会话和买家")
         with self._transaction() as db:
@@ -295,8 +348,18 @@ class CapabilityRegistry:
             if previous is not None and previous["buyer_id"] != buyer_id:
                 raise CapabilityError("能力版本绑定不属于当前买家")
             if previous is not None and previous["digest"] != digest:
-                raise CapabilityVersionChanged("本会话参考的 Skill 或审核策略已发布新版本、过期或撤销；为避免沿用历史正文，请新建选购会话")
+                policy = db.execute("SELECT policy_digest FROM capability_session_policies WHERE session_id=?",
+                                    (session_id,)).fetchone()
+                if not allow_skill_updates or policy is None or policy["policy_digest"] != self._policy_fingerprint(db):
+                    raise CapabilityVersionChanged("本会话参考的 Skill 或审核策略已发布新版本、过期或撤销；为避免沿用历史正文，请新建选购会话")
+                db.execute("UPDATE capability_sessions SET digest=? WHERE session_id=?", (digest, session_id))
             db.execute("INSERT OR IGNORE INTO capability_sessions VALUES(?,?,?,?)", (session_id, buyer_id, digest, now().isoformat()))
+            if allow_skill_updates:
+                policy_digest = self._policy_fingerprint(db)
+                old = db.execute("SELECT policy_digest FROM capability_session_policies WHERE session_id=?", (session_id,)).fetchone()
+                if old is not None and old["policy_digest"] != policy_digest:
+                    raise CapabilityVersionChanged("审核策略或公共撤销记录已变化，请新建选购会话")
+                db.execute("INSERT OR IGNORE INTO capability_session_policies VALUES(?,?)", (session_id, policy_digest))
             return digest
 
     def audit(self):

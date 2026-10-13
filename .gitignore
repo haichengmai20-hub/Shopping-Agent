@@ -49,3 +49,12 @@ node_modules/
 .cache/
 frontend/dist/
 *.tsbuildinfo
+
+# 设计文档、改动记录与图解仅在本地维护。
+/docs/
+
+# 评测使用的临时买家/学习数据库只保留在本机。
+/eval/verification/**/isolated/
+/eval/verification/**/runtime/
+# 模型凭据主密钥永不进入版本库（含自定义 DATA_DIR）。
+**/.secrets/

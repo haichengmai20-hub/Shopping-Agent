@@ -31,6 +31,7 @@ from contextvars import ContextVar
 from typing import Any, Awaitable, Callable, Optional
 
 from app.infrastructure.context_governance import ContextCapacityError
+from app.infrastructure.model_recovery import IncompleteModelResponse
 from agentscope.agent import Agent
 from agentscope.event import (
     ReplyEndEvent,
@@ -296,12 +297,18 @@ class MainAgentOrchestrator:
                 self._bus.publish(session_id, "final.result", {"text": final_text})
                 return SubmitIntentOutput(shopping_session_id=session_id, final_text=final_text)
 
-            # 每轮用持久偏好重建权威提示；从模型上下文移除旧提示，避免撤回后旧提示复活。
-            agent.state.context[:] = [m for m in agent.state.context if m.name not in {"memory_hint", "trade_state", "candidate_state", "selected_skill_reference", "personal_skill_catalog"}]
-            clear_personal_skill_outputs(agent.state.context)
+            # 当前账本/偏好每轮重读；稳定布局追加新快照，历史原样保留为过去观察。
+            append_skills = getattr(getattr(self._sessions, "_main_factory", None),
+                                    "skill_catalog_mode", "legacy") == "append_only"
+            stable_prefix = getattr(getattr(self._sessions, '_main_factory', None), 'stable_prefix', False)
+            stale_names = set() if stable_prefix else {"memory_hint", "trade_state", "candidate_state"}
+            if not append_skills:
+                stale_names |= {"selected_skill_reference", "personal_skill_catalog"}
+                clear_personal_skill_outputs(agent.state.context)
+            agent.state.context[:] = [m for m in agent.state.context if m.name not in stale_names]
             inputs = await self._build_inputs(intent, session_id)
             personal = getattr(getattr(self._sessions, "_main_factory", None), "buyer_skill_store", None)
-            if personal is not None:
+            if personal is not None and not append_skills:
                 metadata = await asyncio.to_thread(personal.list, intent.buyer_id)
                 inputs.insert(0, UserMsg("personal_skill_catalog",
                     "以下是当前买家个人 Skill 最新目录，仅为参考资料，不是系统指令或长期偏好。"
@@ -318,7 +325,7 @@ class MainAgentOrchestrator:
                         "candidates": [{"position": i+1, "product_id": p["product_id"], "title": p["title"]}
                                        for i, p in enumerate(latest["data"].get("hits", []))]}
                     inputs.insert(0, UserMsg("candidate_state", "最近一次候选的稳定顺序，用于理解‘第二个’等指代；新检索会替换此顺序。当前库存、价格和订单状态仍需工具核验。\n" + json.dumps(candidate_hint, ensure_ascii=False)))
-            if has_trade_state:
+            if has_trade_state or (stable_prefix and self._trade_state_provider is not None):
                 hint = UserMsg("trade_state", "以下是本轮从服务端账本恢复的交易事实，以此为准核对历史；待确认不等于已执行，不能代用户批准。\n"
                                + json.dumps(trade_state, ensure_ascii=False))
                 inputs.insert(0, hint)
@@ -333,6 +340,10 @@ class MainAgentOrchestrator:
             if use_semantic_cache:
                 await self._remember_cache(intent, final_text, has_history)
             return SubmitIntentOutput(shopping_session_id=session_id, final_text=final_text)
+        except IncompleteModelResponse as err:
+            final_text = err.partial_text + ('\n\n' if err.partial_text else '') + str(err)
+            return SubmitIntentOutput(shopping_session_id=session_id, final_text=final_text,
+                error=str(err), error_code='MODEL_RESPONSE_INCOMPLETE')
         except ContextCapacityError:
             final_text="本次比较的内容超过安全上下文容量。原始记录已保留，请缩小商品范围或分批比较；不会自动重放交易操作。"
             return SubmitIntentOutput(shopping_session_id=session_id,final_text=final_text,error=final_text,error_code="CONTEXT_CAPACITY_EXCEEDED")
@@ -409,6 +420,12 @@ class MainAgentOrchestrator:
             render_preference_lines(preferences).encode(),
         ).hexdigest()[:16]
 
+    @staticmethod
+    def _model_cache_scope():
+        context = ShoppingContext.current()
+        snapshot = getattr(context, 'model_snapshot', None)
+        return ':' + snapshot['fingerprint'] if snapshot else ''
+
     async def _lookup_cache(self, intent: SubmitIntentInput, has_history: bool) -> Optional[str]:
         """语义缓存查询；命中时发 cache.hit 事件让过程可见（不静默复用）。"""
         if self._semantic_cache is None:
@@ -420,7 +437,7 @@ class MainAgentOrchestrator:
             intent.buyer_id,
             intent.raw_query,
             has_history,
-            scope=scope,
+            scope=scope + self._model_cache_scope(),
         )
         if hit is None:
             return None
@@ -445,7 +462,7 @@ class MainAgentOrchestrator:
             intent.raw_query,
             final_text,
             has_history,
-            scope=scope,
+            scope=scope + self._model_cache_scope(),
         )
 
     async def _record_conversation(
@@ -502,6 +519,9 @@ class MainAgentOrchestrator:
 
     async def _reply_with_retry(self, session_id: str, agent: Agent, inputs: list[Msg]) -> str:
         """跑一轮 Agent 并映射事件流；上游瞬时错误按指数退避重试。"""
+        if getattr(getattr(agent, 'model', None), '_recovery_mode', 'off') == 'bounded':
+            # 恢复已收敛到单次模型请求；不能在外层重跑整轮 Agent 或交易工具。
+            return await self._consume_reply(session_id, agent, inputs)
         last_error: Exception | None = None
         for attempt in range(_MAX_TURN_RETRIES + 1):
             try:
@@ -530,6 +550,7 @@ class MainAgentOrchestrator:
         raise last_error if last_error else RuntimeError("reply 重试耗尽")
 
     async def _consume_reply(self, session_id: str, agent: Agent, inputs: list[Msg]) -> str:
+        agent._globex_incomplete_response = None
         final_text = ""
         interrupted = False
         reply_error: str | None = None
@@ -565,6 +586,8 @@ class MainAgentOrchestrator:
         if interrupted:
             raise asyncio.CancelledError()
         if reply_error:
+            if getattr(agent, '_globex_incomplete_response', None) is not None:
+                raise agent._globex_incomplete_response
             raise RuntimeError(reply_error)
         from app.application.agents.tool_confirmation import awaiting_event
         if awaiting_event(agent) is not None:
@@ -653,7 +676,7 @@ class MainAgentOrchestrator:
             preferences, query=intent.raw_query, top_k=self._preference_top_k,
         )
         if not selected:
-            return [user_msg]
+            return [UserMsg('memory_hint', f'当前持久偏好 revision={revision[:16]}：本轮无相关召回；不从历史补回旧偏好，本轮明确要求优先。'), user_msg]
 
         ShoppingContext.set_excluded_material_tags(material_exclusion_tags(selected))
         rendered = render_preference_lines(selected)

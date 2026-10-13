@@ -74,6 +74,14 @@ class Settings:
     llm_max_concurrency: int = 2  # 同时在飞的模型请求上限
     llm_min_interval_seconds: float = 1.0  # 相邻请求起跑最小间隔，治速率爬升过快
     llm_max_retries: int = 2  # 瞬时故障重试次数（指数退避）
+    llm_enable_thinking: bool | None = None  # 未设置不发送；明确值由支持该参数的网关处理
+    llm_fallback_context_size: int | None = None
+    model_admin_buyers: tuple[str, ...] = ()
+    model_master_key: str = field(default="", repr=False)
+    model_allowed_local_hosts: tuple[str, ...] = ()
+    prompt_cache_mode: str = "passthrough"  # 不主动标记；不等于关闭供应商隐式缓存
+    prompt_cache_policy: str = "static"
+    skill_catalog_mode: str = "legacy"  # append_only 为变化驱动候选，收益验收后再启用
     # ---- 四期：存储 ----
     # 默认 SQLite（零外部依赖，落在 DATA_DIR/globex.db）。
     # 换服务型数据库需自行装异步驱动（aiomysql / asyncpg）并改此 URL，本仓未验证。
@@ -81,7 +89,15 @@ class Settings:
     context_strategy: str = "legacy"
     context_pruning_timing: str = "after_use"
     context_product_tokens: int = 6000
+    context_prompt_layout: str = "legacy_system"  # stable_prefix 待收益验收后启用
+    context_state_mode: str = "snapshot"  # delta 只用于稳定前缀的独立实验
+    context_summary_mode: str = "native"  # preserve_prefix 为同模型、原工具定义的摘要候选
+    model_recovery_mode: str = "off"  # bounded 为有限次续写候选；取消和协议越权不重试
+    context_prune_low_ratio: float = 1.0  # 小于 1 时触发后回收到较低水位
+    context_lookup_mode: str = "strict"  # bounded 兼容明确字段别名及限额分页
+    context_compact_result_rules: bool = False  # 固定说明提升到规则，JSON只移除空白
     context_target_tokens: int = 48000
+    learning_capture_enabled: bool = False  # 终态入队；离线 worker 单独执行，不自动训练或发布
     database_url: str = ""
     # ---- 四期：Redis 缓存 ----
     redis_url: str = ""  # 空 = 全部缓存能力关闭（零外部依赖）
@@ -128,27 +144,47 @@ class Settings:
     hybrid_lexical_weight: float = 1.0
     hybrid_vector_weight: float = 1.0
     recall_candidates: int = 32
+    embedding_version: str = ""  # 同名模型更新权重或编码方式时，用版本区分已存向量
 
 
-def load_settings() -> Settings:
+def load_settings(*, require_llm_key: bool = True) -> Settings:
+    """服务启动默认校验密钥；离线评测可先读取配置，再按运行档位校验。"""
     llm_base_url = os.getenv("LLM_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
     llm_api_key = os.getenv("LLM_API_KEY", "")
-    if not llm_api_key:
+    if require_llm_key and not llm_api_key:
         raise RuntimeError(
             "未配置 LLM_API_KEY，无法启动。请通过环境变量注入（推荐）："
             "export LLM_API_KEY=<你的密钥>；或在项目根目录创建本地 .env 文件"
             "（参考 .env.example，该文件已被 gitignore，不会入库）。"
         )
+    thinking_value = os.getenv("LLM_ENABLE_THINKING", "").strip().lower()
+    thinking_options = {"": None, "1": True, "true": True, "0": False, "false": False}
+    if thinking_value not in thinking_options:
+        raise ValueError("LLM_ENABLE_THINKING 仅接受空值、1/0 或 true/false")
     data_dir = Path(os.getenv("DATA_DIR", str(PROJECT_ROOT / "data")))
     data_dir.mkdir(parents=True, exist_ok=True)  # SQLite 默认落在此目录，建库前必须存在
     return Settings(
         context_strategy=os.getenv("CONTEXT_STRATEGY", "legacy"),
+        skill_catalog_mode=os.getenv("SKILL_CATALOG_MODE", "legacy"),
         context_pruning_timing=os.getenv("CONTEXT_PRUNING_TIMING", "after_use"),
         context_product_tokens=int(os.getenv("CONTEXT_PRODUCT_TOKENS", "6000")),
+        context_prompt_layout=os.getenv("CONTEXT_PROMPT_LAYOUT", "legacy_system"),
+        context_state_mode=os.getenv("CONTEXT_STATE_MODE", "snapshot"),
+        context_summary_mode=os.getenv("CONTEXT_SUMMARY_MODE", "native"),
+        model_recovery_mode=os.getenv("MODEL_RECOVERY_MODE", "off"),
+        context_prune_low_ratio=float(os.getenv("CONTEXT_PRUNE_LOW_RATIO", "1")),
+        context_lookup_mode=os.getenv("CONTEXT_LOOKUP_MODE", "strict"),
+        context_compact_result_rules=os.getenv("CONTEXT_COMPACT_RESULT_RULES", "0") == "1",
         context_target_tokens=int(os.getenv("CONTEXT_TARGET_TOKENS", "48000")),
+        learning_capture_enabled=os.getenv("LEARNING_CAPTURE_ENABLED", "0") == "1",
         llm_base_url=llm_base_url,
         llm_api_key=llm_api_key,
         llm_model=os.getenv("LLM_MODEL", "qwen3-max"),
+        llm_enable_thinking=thinking_options[thinking_value],
+        llm_fallback_context_size=int(os.environ['LLM_FALLBACK_CONTEXT_SIZE']) if os.getenv('LLM_FALLBACK_CONTEXT_SIZE') else None,
+        model_master_key=os.getenv('MODEL_MASTER_KEY', ''),
+        model_admin_buyers=tuple(x.strip() for x in os.getenv('MODEL_ADMIN_BUYERS', '').split(',') if x.strip()),
+        model_allowed_local_hosts=tuple(x.strip() for x in os.getenv('MODEL_ALLOWED_LOCAL_HOSTS', '').split(',') if x.strip()),
         reranker_mode=os.getenv("RERANKER_MODE", "http"),
         reranker_api_key=os.getenv("RERANKER_API_KEY") or llm_api_key,
         reranker_protocol=os.getenv("RERANKER_PROTOCOL", "flat"),
@@ -163,6 +199,7 @@ def load_settings() -> Settings:
         embedding_base_url=os.getenv("EMBEDDING_BASE_URL") or llm_base_url,
         embedding_api_key=os.getenv("EMBEDDING_API_KEY") or llm_api_key,
         embedding_model=os.getenv("EMBEDDING_MODEL", "text-embedding-v4"),
+        embedding_version=os.getenv("EMBEDDING_VERSION", ""),
         embedding_dim=int(os.getenv("EMBEDDING_DIM", "1024")),
         qdrant_url=os.getenv("QDRANT_URL", ""),
         qdrant_collection=os.getenv("QDRANT_COLLECTION", "globex_products"),
@@ -189,6 +226,8 @@ def load_settings() -> Settings:
         llm_max_concurrency=int(os.getenv("LLM_MAX_CONCURRENCY", "2")),
         llm_min_interval_seconds=float(os.getenv("LLM_MIN_INTERVAL_SECONDS", "1.0")),
         llm_max_retries=int(os.getenv("LLM_MAX_RETRIES", "2")),
+        prompt_cache_mode=os.getenv("PROMPT_CACHE_MODE", "passthrough"),
+        prompt_cache_policy=os.getenv("PROMPT_CACHE_POLICY", "static"),
         # 兼容早期变量名 MYSQL_URL；两者都没配时默认本地 SQLite
         database_url=(
             os.getenv("DATABASE_URL")
