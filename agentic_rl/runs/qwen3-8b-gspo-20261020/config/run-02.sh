@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# run-02：推演配置，没有真实运行。键名对齐 verl v0.6.0（policy_loss.loss_mode=gspo 在 v0.6.0 才注册）。
+set -euo pipefail
+python3 -m verl.trainer.main_ppo \
+  algorithm.adv_estimator=grpo \
+  algorithm.use_kl_in_reward=False \
+  data.train_files=agentic_rl/runs/data/run-02_train.parquet \
+  data.train_batch_size=32 data.max_prompt_length=2048 data.max_response_length=6144 \
+  data.return_raw_chat=True \
+  actor_rollout_ref.model.path=checkpoints/sft-rule_demos_A+C_rewrites \
+  actor_rollout_ref.actor.policy_loss.loss_mode=gspo \
+  actor_rollout_ref.actor.loss_agg_mode=seq-mean-token-mean \
+  actor_rollout_ref.actor.clip_ratio_low=0.0003 actor_rollout_ref.actor.clip_ratio_high=0.0004 \
+  actor_rollout_ref.actor.use_kl_loss=True actor_rollout_ref.actor.kl_loss_coef=0.02 \
+  actor_rollout_ref.actor.kl_loss_type=low_var_kl \
+  actor_rollout_ref.actor.optim.lr=1e-6 actor_rollout_ref.actor.ppo_epochs=2 \
+  actor_rollout_ref.actor.ppo_mini_batch_size=8 \
+  actor_rollout_ref.rollout.name=sglang actor_rollout_ref.rollout.mode=async \
+  actor_rollout_ref.rollout.n=8 actor_rollout_ref.rollout.temperature=1.0 \
+  actor_rollout_ref.rollout.multi_turn.enable=True \
+  actor_rollout_ref.rollout.multi_turn.max_assistant_turns=15 \
+  actor_rollout_ref.rollout.multi_turn.max_user_turns=4 \
+  actor_rollout_ref.rollout.multi_turn.tool_config_path=agentic_rl/runs/config/tools.yaml \
+  actor_rollout_ref.rollout.multi_turn.interaction_config_path=agentic_rl/runs/config/user_sim.yaml \
+  custom_reward_function.path=agentic_rl/reward.py custom_reward_function.name=reward_verified \
+  trainer.n_gpus_per_node=4 trainer.nnodes=1 trainer.total_training_steps=150 \
+  trainer.test_freq=25 trainer.save_freq=50 trainer.logger='["console","wandb"]' \
+  trainer.project_name=globex-agentic-rl trainer.experiment_name=run-02

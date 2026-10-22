@@ -1,0 +1,43 @@
+{
+  "command": "python -m agentic_rl real --out eval/verification/agentic-rl-env-20261019",
+  "source": {
+    "sha256": "e32c09a5668018b70d5eda6eecfc6d57ebadcc4adf98a16815dd0bf8d095629a",
+    "files": [
+      "agentic_rl/__init__.py",
+      "agentic_rl/__main__.py",
+      "agentic_rl/catalog.py",
+      "agentic_rl/env.py",
+      "agentic_rl/evaluate.py",
+      "agentic_rl/filters.py",
+      "agentic_rl/gspo.py",
+      "agentic_rl/phrasing.py",
+      "agentic_rl/policies.py",
+      "agentic_rl/reward.py",
+      "agentic_rl/scenario.py",
+      "agentic_rl/tasks.py",
+      "agentic_rl/trajectory.py",
+      "agentic_rl/user_sim.py",
+      "data/catalog-v3.jsonl"
+    ],
+    "git_head": "1672fe4"
+  },
+  "python": "3.11.17",
+  "platform": "macOS-14.2-arm64-arm-64bit",
+  "timings": {
+    "tasks_s": 8.69,
+    "train/careful_s": 19.78,
+    "train/trust_filter_s": 20.03,
+    "train/always_ask_s": 19.84,
+    "train/never_ask_s": 19.81,
+    "dev/careful_s": 5.01,
+    "dev/trust_filter_s": 5.01,
+    "dev/always_ask_s": 5.01,
+    "dev/never_ask_s": 4.93,
+    "heldout/careful_s": 7.51,
+    "heldout/trust_filter_s": 7.21,
+    "heldout/always_ask_s": 7.14,
+    "heldout/never_ask_s": 7.09
+  },
+  "total_s": 138.4,
+  "model_calls": 0
+}

@@ -1,0 +1,17 @@
+{
+  "source": "careful 规则策略在训练集上的真实轨迹",
+  "input": 320,
+  "kept": 319,
+  "dropped": {
+    "score": 1
+  },
+  "kept_by_scenario": {
+    "changed": 63,
+    "complete": 96,
+    "missing_slot": 80,
+    "no_result": 32,
+    "verify": 48
+  },
+  "tokens_total_mean": 3410.6,
+  "tokens_total_max": 6123
+}

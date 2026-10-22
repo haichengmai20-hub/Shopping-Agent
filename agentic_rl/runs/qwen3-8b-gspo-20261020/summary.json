@@ -1,0 +1,61 @@
+{
+  "model": "Qwen/Qwen3-8B",
+  "machine": "4×A800 80GB",
+  "price_per_gpu_hour_cny": 10.0,
+  "runs": {
+    "run-01": {
+      "steps": 150,
+      "hours": 25.4,
+      "cost_cny": 1016,
+      "reward_fn": "tutorial",
+      "clip": [
+        0.2,
+        0.2
+      ],
+      "sft_data": "rule_demos_A",
+      "final_train_reward": 1.0045,
+      "final_trap_rate": 0.3397,
+      "eval": {
+        "dev_success": 0.86,
+        "heldout_success": 0.31,
+        "heldout_trap": 0.33,
+        "heldout_unneeded_q": 0.42,
+        "dev_ci": [
+          0.77,
+          0.92
+        ],
+        "heldout_ci": [
+          0.23,
+          0.4
+        ]
+      }
+    },
+    "run-02": {
+      "steps": 150,
+      "hours": 26.7,
+      "cost_cny": 1068,
+      "reward_fn": "verified",
+      "clip": [
+        0.0003,
+        0.0004
+      ],
+      "sft_data": "rule_demos_A+C_rewrites",
+      "final_train_reward": 0.8637,
+      "final_trap_rate": 0.0526,
+      "eval": {
+        "dev_success": 0.93,
+        "heldout_success": 0.58,
+        "heldout_trap": 0.06,
+        "heldout_unneeded_q": 0.12,
+        "dev_ci": [
+          0.85,
+          0.97
+        ],
+        "heldout_ci": [
+          0.49,
+          0.67
+        ]
+      }
+    }
+  }
+}
