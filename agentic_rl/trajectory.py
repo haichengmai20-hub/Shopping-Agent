@@ -59,13 +59,15 @@ def loss_mask(messages: list) -> list[dict]:
             for i, m in enumerate(messages)]
 
 
-def to_record(episode: Episode, rewards: dict | None = None, policy_version: str = "rule-v1") -> dict:
+def to_record(episode: Episode, rewards: dict | None = None, policy_version: str = "rule-v1",
+              messages: list | None = None) -> dict:
     task = episode.task
-    mask = loss_mask(episode.messages)
+    messages = episode.messages if messages is None else messages  # M1-3：消费方可传清洗后的同一版本
+    mask = loss_mask(messages)
     return {
         "task_id": task.task_id, "split": task.split, "scenario": task.scenario, "policy": episode.policy,
         "policy_version": policy_version, "termination": episode.termination,
-        "messages": episode.messages, "loss_mask": [item["loss"] for item in mask],
+        "messages": messages, "loss_mask": [item["loss"] for item in mask],
         "tokens_total": sum(item["tokens"] for item in mask),
         "tokens_policy": sum(item["tokens"] for item in mask if item["loss"]),
         "rewards": rewards or {},

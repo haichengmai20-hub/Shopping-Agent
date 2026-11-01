@@ -1,0 +1,506 @@
+{
+  "train": {
+    "careful": {
+      "n": 320,
+      "success": 0.9969,
+      "success_ci95": [
+        0.9825,
+        0.9994
+      ],
+      "task_success": 0.9969,
+      "verified_reward_mean": 0.9969,
+      "tutorial_reward_mean": 1.0035,
+      "reward_correlation": -0.0189,
+      "p0_rate": 0.0,
+      "violation_rate": 0.0,
+      "trap_rate": 0.0,
+      "unnecessary_question_rate": 0.0,
+      "missed_clarification_rate": 0.0,
+      "no_result_honesty": 1.0,
+      "verify_compliance": 1.0,
+      "avg_assistant_turns": 3.2,
+      "avg_tool_calls": 1.6,
+      "terminations": {
+        "answered": 320
+      },
+      "failure_reasons": {
+        "no_recommendation": 1
+      },
+      "by_scenario": {
+        "changed": 0.9844,
+        "complete": 1.0,
+        "missing_slot": 1.0,
+        "no_result": 1.0,
+        "verify": 1.0
+      },
+      "by_scenario_task": {
+        "changed": 0.9844,
+        "complete": 1.0,
+        "missing_slot": 1.0,
+        "no_result": 1.0,
+        "verify": 1.0
+      }
+    },
+    "trust_filter": {
+      "n": 320,
+      "success": 0.5656,
+      "success_ci95": [
+        0.5109,
+        0.6188
+      ],
+      "task_success": 0.5656,
+      "verified_reward_mean": 0.5656,
+      "tutorial_reward_mean": 1.0148,
+      "reward_correlation": 0.0761,
+      "p0_rate": 0.0,
+      "violation_rate": 0.4344,
+      "trap_rate": 0.3715,
+      "unnecessary_question_rate": 0.0,
+      "missed_clarification_rate": 0.0,
+      "no_result_honesty": 0.0,
+      "verify_compliance": 1.0,
+      "avg_assistant_turns": 3.2,
+      "avg_tool_calls": 1.6,
+      "terminations": {
+        "answered": 320
+      },
+      "failure_reasons": {
+        "relaxed_or_unclear_no_result": 32,
+        "constraint_violation": 107
+      },
+      "by_scenario": {
+        "changed": 0.5469,
+        "complete": 0.5729,
+        "missing_slot": 0.6875,
+        "no_result": 0.0,
+        "verify": 0.75
+      },
+      "by_scenario_task": {
+        "changed": 0.5469,
+        "complete": 0.5729,
+        "missing_slot": 0.6875,
+        "no_result": 0.0,
+        "verify": 0.75
+      }
+    },
+    "always_ask": {
+      "n": 320,
+      "success": 0.9969,
+      "success_ci95": [
+        0.9825,
+        0.9994
+      ],
+      "task_success": 0.9969,
+      "verified_reward_mean": 0.8598,
+      "tutorial_reward_mean": 1.011,
+      "reward_correlation": -0.0245,
+      "p0_rate": 0.0,
+      "violation_rate": 0.0,
+      "trap_rate": 0.0,
+      "unnecessary_question_rate": 1.0,
+      "missed_clarification_rate": 0.0,
+      "no_result_honesty": 1.0,
+      "verify_compliance": 1.0,
+      "avg_assistant_turns": 4.7,
+      "avg_tool_calls": 2.35,
+      "terminations": {
+        "answered": 320
+      },
+      "failure_reasons": {
+        "no_recommendation": 1
+      },
+      "by_scenario": {
+        "changed": 0.9844,
+        "complete": 1.0,
+        "missing_slot": 1.0,
+        "no_result": 1.0,
+        "verify": 1.0
+      },
+      "by_scenario_task": {
+        "changed": 0.9844,
+        "complete": 1.0,
+        "missing_slot": 1.0,
+        "no_result": 1.0,
+        "verify": 1.0
+      }
+    },
+    "never_ask": {
+      "n": 320,
+      "success": 0.7469,
+      "success_ci95": [
+        0.6965,
+        0.7914
+      ],
+      "task_success": 0.7469,
+      "verified_reward_mean": 0.7469,
+      "tutorial_reward_mean": 0.9018,
+      "reward_correlation": 0.3896,
+      "p0_rate": 0.0,
+      "violation_rate": 0.1625,
+      "trap_rate": 0.0486,
+      "unnecessary_question_rate": 0.0,
+      "missed_clarification_rate": 1.0,
+      "no_result_honesty": 1.0,
+      "verify_compliance": 1.0,
+      "avg_assistant_turns": 2.7,
+      "avg_tool_calls": 1.35,
+      "terminations": {
+        "answered": 320
+      },
+      "failure_reasons": {
+        "constraint_violation": 52,
+        "missed_clarification": 80,
+        "no_recommendation": 1
+      },
+      "by_scenario": {
+        "changed": 0.9844,
+        "complete": 1.0,
+        "missing_slot": 0.0,
+        "no_result": 1.0,
+        "verify": 1.0
+      },
+      "by_scenario_task": {
+        "changed": 0.9844,
+        "complete": 1.0,
+        "missing_slot": 0.0,
+        "no_result": 1.0,
+        "verify": 1.0
+      }
+    }
+  },
+  "dev": {
+    "careful": {
+      "n": 80,
+      "success": 1.0,
+      "success_ci95": [
+        0.9542,
+        1.0
+      ],
+      "task_success": 1.0,
+      "verified_reward_mean": 1.0,
+      "tutorial_reward_mean": 1.006,
+      "reward_correlation": null,
+      "p0_rate": 0.0,
+      "violation_rate": 0.0,
+      "trap_rate": 0.0,
+      "unnecessary_question_rate": 0.0,
+      "missed_clarification_rate": 0.0,
+      "no_result_honesty": 1.0,
+      "verify_compliance": 1.0,
+      "avg_assistant_turns": 3.2,
+      "avg_tool_calls": 1.6,
+      "terminations": {
+        "answered": 80
+      },
+      "failure_reasons": {},
+      "by_scenario": {
+        "changed": 1.0,
+        "complete": 1.0,
+        "missing_slot": 1.0,
+        "no_result": 1.0,
+        "verify": 1.0
+      },
+      "by_scenario_task": {
+        "changed": 1.0,
+        "complete": 1.0,
+        "missing_slot": 1.0,
+        "no_result": 1.0,
+        "verify": 1.0
+      }
+    },
+    "trust_filter": {
+      "n": 80,
+      "success": 0.6125,
+      "success_ci95": [
+        0.5029,
+        0.7118
+      ],
+      "task_success": 0.6125,
+      "verified_reward_mean": 0.6125,
+      "tutorial_reward_mean": 1.0135,
+      "reward_correlation": -0.0592,
+      "p0_rate": 0.0,
+      "violation_rate": 0.3875,
+      "trap_rate": 0.3194,
+      "unnecessary_question_rate": 0.0,
+      "missed_clarification_rate": 0.0,
+      "no_result_honesty": 0.0,
+      "verify_compliance": 1.0,
+      "avg_assistant_turns": 3.2,
+      "avg_tool_calls": 1.6,
+      "terminations": {
+        "answered": 80
+      },
+      "failure_reasons": {
+        "relaxed_or_unclear_no_result": 8,
+        "constraint_violation": 23
+      },
+      "by_scenario": {
+        "changed": 0.75,
+        "complete": 0.7083,
+        "missing_slot": 0.6,
+        "no_result": 0.0,
+        "verify": 0.6667
+      },
+      "by_scenario_task": {
+        "changed": 0.75,
+        "complete": 0.7083,
+        "missing_slot": 0.6,
+        "no_result": 0.0,
+        "verify": 0.6667
+      }
+    },
+    "always_ask": {
+      "n": 80,
+      "success": 1.0,
+      "success_ci95": [
+        0.9542,
+        1.0
+      ],
+      "task_success": 1.0,
+      "verified_reward_mean": 0.8625,
+      "tutorial_reward_mean": 1.0135,
+      "reward_correlation": -0.1768,
+      "p0_rate": 0.0,
+      "violation_rate": 0.0,
+      "trap_rate": 0.0,
+      "unnecessary_question_rate": 1.0,
+      "missed_clarification_rate": 0.0,
+      "no_result_honesty": 1.0,
+      "verify_compliance": 1.0,
+      "avg_assistant_turns": 4.7,
+      "avg_tool_calls": 2.35,
+      "terminations": {
+        "answered": 80
+      },
+      "failure_reasons": {},
+      "by_scenario": {
+        "changed": 1.0,
+        "complete": 1.0,
+        "missing_slot": 1.0,
+        "no_result": 1.0,
+        "verify": 1.0
+      },
+      "by_scenario_task": {
+        "changed": 1.0,
+        "complete": 1.0,
+        "missing_slot": 1.0,
+        "no_result": 1.0,
+        "verify": 1.0
+      }
+    },
+    "never_ask": {
+      "n": 80,
+      "success": 0.75,
+      "success_ci95": [
+        0.6452,
+        0.8319
+      ],
+      "task_success": 0.75,
+      "verified_reward_mean": 0.75,
+      "tutorial_reward_mean": 0.9005,
+      "reward_correlation": 0.4244,
+      "p0_rate": 0.0,
+      "violation_rate": 0.1375,
+      "trap_rate": 0.0139,
+      "unnecessary_question_rate": 0.0,
+      "missed_clarification_rate": 1.0,
+      "no_result_honesty": 1.0,
+      "verify_compliance": 1.0,
+      "avg_assistant_turns": 2.7,
+      "avg_tool_calls": 1.35,
+      "terminations": {
+        "answered": 80
+      },
+      "failure_reasons": {
+        "constraint_violation": 11,
+        "missed_clarification": 20
+      },
+      "by_scenario": {
+        "changed": 1.0,
+        "complete": 1.0,
+        "missing_slot": 0.0,
+        "no_result": 1.0,
+        "verify": 1.0
+      },
+      "by_scenario_task": {
+        "changed": 1.0,
+        "complete": 1.0,
+        "missing_slot": 0.0,
+        "no_result": 1.0,
+        "verify": 1.0
+      }
+    }
+  },
+  "heldout": {
+    "careful": {
+      "n": 120,
+      "success": 0.1,
+      "success_ci95": [
+        0.0581,
+        0.1667
+      ],
+      "task_success": 0.1,
+      "verified_reward_mean": 0.095,
+      "tutorial_reward_mean": 1.022,
+      "reward_correlation": -0.1667,
+      "p0_rate": 0.0,
+      "violation_rate": 0.0,
+      "trap_rate": 0.0,
+      "unnecessary_question_rate": 1.0,
+      "missed_clarification_rate": 0.0,
+      "no_result_honesty": 1.0,
+      "verify_compliance": 0.0,
+      "avg_assistant_turns": 4.55,
+      "avg_tool_calls": 2.2,
+      "terminations": {
+        "answered": 120
+      },
+      "failure_reasons": {
+        "no_recommendation": 108,
+        "skipped_verification": 18
+      },
+      "by_scenario": {
+        "changed": 0.0,
+        "complete": 0.0,
+        "missing_slot": 0.0,
+        "no_result": 1.0,
+        "verify": 0.0
+      },
+      "by_scenario_task": {
+        "changed": 0.0,
+        "complete": 0.0,
+        "missing_slot": 0.0,
+        "no_result": 1.0,
+        "verify": 0.0
+      }
+    },
+    "trust_filter": {
+      "n": 120,
+      "success": 0.1,
+      "success_ci95": [
+        0.0581,
+        0.1667
+      ],
+      "task_success": 0.1,
+      "verified_reward_mean": 0.095,
+      "tutorial_reward_mean": 1.022,
+      "reward_correlation": -0.1667,
+      "p0_rate": 0.0,
+      "violation_rate": 0.0,
+      "trap_rate": 0.0,
+      "unnecessary_question_rate": 1.0,
+      "missed_clarification_rate": 0.0,
+      "no_result_honesty": 1.0,
+      "verify_compliance": 0.0,
+      "avg_assistant_turns": 4.55,
+      "avg_tool_calls": 2.2,
+      "terminations": {
+        "answered": 120
+      },
+      "failure_reasons": {
+        "no_recommendation": 108,
+        "skipped_verification": 18
+      },
+      "by_scenario": {
+        "changed": 0.0,
+        "complete": 0.0,
+        "missing_slot": 0.0,
+        "no_result": 1.0,
+        "verify": 0.0
+      },
+      "by_scenario_task": {
+        "changed": 0.0,
+        "complete": 0.0,
+        "missing_slot": 0.0,
+        "no_result": 1.0,
+        "verify": 0.0
+      }
+    },
+    "always_ask": {
+      "n": 120,
+      "success": 0.1,
+      "success_ci95": [
+        0.0581,
+        0.1667
+      ],
+      "task_success": 0.1,
+      "verified_reward_mean": 0.085,
+      "tutorial_reward_mean": 1.022,
+      "reward_correlation": -0.1667,
+      "p0_rate": 0.0,
+      "violation_rate": 0.0,
+      "trap_rate": 0.0,
+      "unnecessary_question_rate": 1.0,
+      "missed_clarification_rate": 0.0,
+      "no_result_honesty": 1.0,
+      "verify_compliance": 0.0,
+      "avg_assistant_turns": 4.55,
+      "avg_tool_calls": 2.2,
+      "terminations": {
+        "answered": 120
+      },
+      "failure_reasons": {
+        "no_recommendation": 108,
+        "skipped_verification": 18
+      },
+      "by_scenario": {
+        "changed": 0.0,
+        "complete": 0.0,
+        "missing_slot": 0.0,
+        "no_result": 1.0,
+        "verify": 0.0
+      },
+      "by_scenario_task": {
+        "changed": 0.0,
+        "complete": 0.0,
+        "missing_slot": 0.0,
+        "no_result": 1.0,
+        "verify": 0.0
+      }
+    },
+    "never_ask": {
+      "n": 120,
+      "success": 0.1,
+      "success_ci95": [
+        0.0581,
+        0.1667
+      ],
+      "task_success": 0.1,
+      "verified_reward_mean": 0.1,
+      "tutorial_reward_mean": 1.012,
+      "reward_correlation": -0.1667,
+      "p0_rate": 0.0,
+      "violation_rate": 0.0,
+      "trap_rate": 0.0,
+      "unnecessary_question_rate": 0.0,
+      "missed_clarification_rate": 1.0,
+      "no_result_honesty": 1.0,
+      "verify_compliance": 0.0,
+      "avg_assistant_turns": 2.55,
+      "avg_tool_calls": 1.2,
+      "terminations": {
+        "answered": 120
+      },
+      "failure_reasons": {
+        "no_recommendation": 108,
+        "skipped_verification": 18,
+        "missed_clarification": 30
+      },
+      "by_scenario": {
+        "changed": 0.0,
+        "complete": 0.0,
+        "missing_slot": 0.0,
+        "no_result": 1.0,
+        "verify": 0.0
+      },
+      "by_scenario_task": {
+        "changed": 0.0,
+        "complete": 0.0,
+        "missing_slot": 0.0,
+        "no_result": 1.0,
+        "verify": 0.0
+      }
+    }
+  }
+}

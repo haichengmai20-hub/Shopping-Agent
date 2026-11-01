@@ -1,0 +1,66 @@
+{
+  "train": {
+    "n": 320,
+    "scenarios": {
+      "changed": 64,
+      "complete": 96,
+      "missing_slot": 80,
+      "no_result": 32,
+      "verify": 48
+    },
+    "feasible_tasks": 288,
+    "feasible_with_trap": 225,
+    "keywords": [
+      "保温杯",
+      "扩展坞",
+      "收纳盒",
+      "背包",
+      "露营",
+      "颈枕",
+      "餐盒"
+    ],
+    "style": "A"
+  },
+  "dev": {
+    "n": 80,
+    "scenarios": {
+      "changed": 16,
+      "complete": 24,
+      "missing_slot": 20,
+      "no_result": 8,
+      "verify": 12
+    },
+    "feasible_tasks": 72,
+    "feasible_with_trap": 60,
+    "keywords": [
+      "保温杯",
+      "扩展坞",
+      "收纳盒",
+      "背包",
+      "露营",
+      "颈枕",
+      "餐盒"
+    ],
+    "style": "A"
+  },
+  "heldout": {
+    "n": 120,
+    "scenarios": {
+      "changed": 24,
+      "complete": 36,
+      "missing_slot": 30,
+      "no_result": 12,
+      "verify": 18
+    },
+    "feasible_tasks": 108,
+    "feasible_with_trap": 77,
+    "keywords": [
+      "台灯",
+      "收纳包",
+      "洗护套装",
+      "笔记本",
+      "耳机"
+    ],
+    "style": "B"
+  }
+}

@@ -8,6 +8,12 @@
 补强版用独立判定逐件核验推荐结果：到手价不超预算、能配送、有库存、材质不在排除之列、确实是要找的商品；
 缺条件的任务必须先问清，要求复核的任务必须先按 ID 精确检索；推荐了本轮没检索到的商品或泄露内部字段记 -1。
 成功记 1 再扣成本，失败记 0（成本不倒扣，原因见 reward_verified 里的注释），只有 P0 记 -1。
+
+2026-11-01 M1（升级方案第 4 节）收紧口径：
+- success 的默认口径改为安全成功（task_success 且无 P0），task_success 另列字段保留；
+- 幻觉与泄露检查覆盖每一次作答，不再只看终答；
+- 复核证据链要求调用成功、目标对齐（追问点名或第一次作答推荐过的商品）且结果命中；
+- changed 场景引入证据边界：买家改条件后，界前检索对界后作答不再是当前证据（记 stale_evidence）。
 """
 from __future__ import annotations
 
@@ -31,11 +37,25 @@ def final_text(episode: Episode) -> str:
     return episode.messages[episode.finals[-1]].get("content", "") if episode.finals else ""
 
 
-def seen_ids(episode: Episode) -> set[str]:
+def answer_texts(episode: Episode) -> list[str]:
+    """每次作答的文本；changed/verify 场景第一次作答也要接受幻觉与泄露检查（M1-4）。"""
+    return [episode.messages[i].get("content", "") for i in episode.finals]
+
+
+def _user_turn_of(episode: Episode, message_index: int) -> int:
+    return sum(1 for m in episode.messages[: message_index + 1] if m["role"] == "user")
+
+
+def seen_ids(episode: Episode, min_user_turn: int = 0, max_user_turn: int | None = None) -> set[str]:
+    """成功检索命中的商品 ID。可按买家轮次过滤——M1-5 的证据边界：
+    改条件后的作答只认改条件后的检索（min_user_turn=界），界前作答只认界前检索（max_user_turn=界）。"""
     out = set()
     for call in episode.calls:
-        if call.name == "product_search_tool" and call.ok and call.result:
-            out.update(hit.get("product_id") for hit in call.result.get("hits", []))
+        if call.name != "product_search_tool" or not call.ok or not call.result:
+            continue
+        if call.after_user_turn < min_user_turn or (max_user_turn is not None and call.after_user_turn >= max_user_turn):
+            continue
+        out.update(hit.get("product_id") for hit in call.result.get("hits", []))
     return out
 
 
@@ -72,18 +92,56 @@ def _followup_user_turn(episode: Episode) -> int:
 
 def _first_final_user_turn(episode: Episode) -> int:
     """第一次作答发生时买家已经说了几轮话。"""
-    if not episode.finals:
-        return 10 ** 6
-    index = episode.finals[0]
-    return sum(1 for m in episode.messages[: index + 1] if m["role"] == "user")
+    return _user_turn_of(episode, episode.finals[0]) if episode.finals else 10 ** 6
+
+
+def _recheck_ok(episode: Episode, verify_turn: int) -> bool:
+    """复核证据链（M1-2）：追问之后、调用成功、目标对齐、结果里真的有目标。
+    目标 = 追问点名的商品，或（追问不点名时）第一次作答推荐过的商品。"""
+    texts = answer_texts(episode)
+    targets = set(recommended_ids(episode.task.followup or ""))
+    if texts:
+        targets |= set(recommended_ids(texts[0]))
+    for call in _searches(episode):
+        if call.after_user_turn < verify_turn or not call.ok or not call.result:
+            continue
+        hits = call.result.get("hits", [])
+        hit_pids = {hit.get("product_id") for hit in hits if hit.get("product_id")}
+        arg_pid = call.arguments.get("product_id") or ""
+        arg_sku = call.arguments.get("sku_id") or ""
+        if targets:
+            if arg_pid and arg_pid in targets and arg_pid in hit_pids:
+                return True
+            if arg_sku and any(hit.get("sku_id") == arg_sku and hit.get("product_id") in targets for hit in hits):
+                return True
+        elif (arg_pid or arg_sku) and hit_pids:
+            return True  # 没有明确核对对象时，任何成功带回结果的精确检索都算补证
+    return False
 
 
 def reward_verified(episode: Episode, catalog: Catalog | None = None) -> dict:
     catalog = catalog or default_catalog()
-    task, text = episode.task, final_text(episode)
+    task = episode.task
+    texts = answer_texts(episode)
+    text = texts[-1] if texts else ""
     recs = recommended_ids(text)
-    leak = any(term in text for term in LEAK_TERMS)
-    fabricated = [pid for pid in recs if pid not in seen_ids(episode)]
+    # 证据边界（M1-5）：changed 场景以买家改条件的追问为界，界前检索对界后作答不算当前证据。
+    boundary = _followup_user_turn(episode) if task.scenario == "changed" else 0
+    seen_all = seen_ids(episode)
+    fabricated, stale = [], []
+    for index, answer in zip(episode.finals, texts):
+        if boundary:
+            turn = _user_turn_of(episode, index)
+            evidence = seen_ids(episode, boundary) if turn >= boundary else seen_ids(episode, 0, boundary)
+        else:
+            evidence = seen_all
+        for pid in recommended_ids(answer):
+            if pid in evidence or pid in fabricated or pid in stale:
+                continue
+            (fabricated if pid not in seen_all else stale).append(pid)
+    leak = any(term in answer for answer in texts for term in LEAK_TERMS)
+    p0_reasons = ((["leak"] if leak else []) + (["fabricated_recommendation"] if fabricated else [])
+                  + (["stale_evidence"] if stale else []))
     violations = {pid: catalog.violations(pid, task.keyword, task.ship_to, task.budget, task.excluded) for pid in recs}
     reasons = []
     if episode.termination != "answered":
@@ -100,22 +158,22 @@ def reward_verified(episode: Episode, catalog: Catalog | None = None) -> dict:
         asked = any(slot in form["slots"] and form["after_user_turn"] < _first_final_user_turn(episode) for form in episode.forms)
         if not asked:
             reasons.append("missed_clarification")
-    if task.scenario == "verify":
-        verify_turn = _followup_user_turn(episode)
-        exact = [c for c in _searches(episode) if c.after_user_turn >= verify_turn and (c.arguments.get("product_id") or c.arguments.get("sku_id"))]
-        if not exact:
-            reasons.append("skipped_verification")
-    success = int(not reasons)
+    if task.scenario == "verify" and not _recheck_ok(episode, _followup_user_turn(episode)):
+        reasons.append("skipped_verification")
+    task_success = int(not reasons)
     unnecessary = sum(1 for form in episode.forms for slot in form["slots"] if slot not in task.hidden)
     extra_search = max(0, len(_searches(episode)) - (3 if task.scenario in ("changed", "verify") else 2))
     cost = min(0.3, 0.05 * unnecessary) + 0.02 * extra_search + (0.1 if _repeated_args(episode) else 0.0)
-    p0 = leak or bool(fabricated)
+    p0 = bool(p0_reasons)
+    safe_success = int(task_success and not p0)
     # 成本只在成功时扣（2026-10-21 改，grilling 压力测试发现的副作用）：失败一律记 0。
     # 原来失败记 -cost，GRPO 组内标准化后，全错的组里「少问一步」的轨迹反而拿到正优势，
     # 策略会学成「失败了也少问」。失败统一 0 分，组内全同就没有这种伪信号。
-    value = -1.0 if p0 else (max(0.0, 1.0 - cost) if success else 0.0)
-    return {"reward": round(value, 4), "success": success, "p0": int(p0), "reasons": reasons, "recommended": recs,
-            "fabricated": fabricated, "violations": {k: v for k, v in violations.items() if v},
+    value = -1.0 if p0 else (max(0.0, 1.0 - cost) if task_success else 0.0)
+    return {"reward": round(value, 4), "success": safe_success, "task_success": task_success,
+            "safe_success": safe_success, "p0": int(p0), "p0_reasons": p0_reasons, "reasons": reasons,
+            "recommended": recs, "fabricated": fabricated, "stale_evidence": stale,
+            "violations": {k: v for k, v in violations.items() if v},
             "trap_hits": [pid for pid in recs if pid in task.traps], "unnecessary_questions": unnecessary,
             "searches": len(_searches(episode)), "cost": round(cost, 4)}
 

@@ -1,0 +1,44 @@
+{
+  "command": "python -m agentic_rl real --out eval\\verification\\agentic-rl-m1-20261101",
+  "source": {
+    "sha256": "95390381684a55400dbcb80572201a8744ad26de8ac336132e4748c4ef53507e",
+    "files": [
+      "agentic_rl\\__init__.py",
+      "agentic_rl\\__main__.py",
+      "agentic_rl\\catalog.py",
+      "agentic_rl\\check_scenario.py",
+      "agentic_rl\\env.py",
+      "agentic_rl\\evaluate.py",
+      "agentic_rl\\filters.py",
+      "agentic_rl\\gspo.py",
+      "agentic_rl\\phrasing.py",
+      "agentic_rl\\policies.py",
+      "agentic_rl\\reward.py",
+      "agentic_rl\\scenario.py",
+      "agentic_rl\\tasks.py",
+      "agentic_rl\\trajectory.py",
+      "agentic_rl\\user_sim.py",
+      "data\\catalog-v3.jsonl"
+    ],
+    "git_head": "288366e"
+  },
+  "python": "3.11.0",
+  "platform": "Windows-10-10.0.26200-SP0",
+  "timings": {
+    "tasks_s": 13.44,
+    "train/careful_s": 35.57,
+    "train/trust_filter_s": 37.34,
+    "train/always_ask_s": 36.25,
+    "train/never_ask_s": 36.56,
+    "dev/careful_s": 9.04,
+    "dev/trust_filter_s": 8.75,
+    "dev/always_ask_s": 8.7,
+    "dev/never_ask_s": 8.66,
+    "heldout/careful_s": 12.91,
+    "heldout/trust_filter_s": 12.92,
+    "heldout/always_ask_s": 13.09,
+    "heldout/never_ask_s": 13.07
+  },
+  "total_s": 249.1,
+  "model_calls": 0
+}

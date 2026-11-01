@@ -173,3 +173,102 @@ def test_scenario_clip_assumption_matches_attribution():
     assert scenario.RUNS["run-01"]["pg_clipfrac"] == 0.0
     assert "约 0.12" not in scenario.ATTRIBUTION
     assert scenario.RUNS["run-01"]["eval"]["heldout_success"] < scenario.RUNS["run-02"]["eval"]["heldout_success"]
+
+
+# ---------------- M1（2026-11-01）回归：判分口径 / 复核证据链 / 数据血缘 ----------------
+# 对应升级方案第 4 节 + 审计补充发现：五个用例先于修复写成，修复前必须失败。
+
+
+def _m1_episode(task, messages, calls=(), forms=(), finals=None, termination="answered"):
+    if finals is None:
+        finals = [i for i, m in enumerate(messages) if m["role"] == "assistant" and not m.get("tool_calls")]
+    return Episode(task=task, policy="x", messages=list(messages), calls=list(calls), forms=list(forms),
+                   finals=finals, termination=termination)
+
+
+def _m1_search(call_id, args, ok=True, hits=(), after_user_turn=1):
+    return ToolCallRecord(call_id, "product_search_tool", args, ok,
+                          {"hits": [{"product_id": h} for h in hits]}, 1, after_user_turn)
+
+
+def test_m1_unsearched_valid_product_is_task_success_but_not_safe(catalog, dev_tasks):
+    """M1-1：推荐了目录里真实合格、但从未检索过的商品——任务层成立，安全层必须拦下。"""
+    task = next(t for t in dev_tasks if t.scenario == "complete" and t.feasible)
+    pid = task.feasible[0]
+    episode = _m1_episode(task, [
+        {"role": "system", "content": ""}, {"role": "user", "content": task.initial_query},
+        {"role": "assistant", "content": f"推荐 {pid}，各方面都合适，价格也在预算内。"}])
+    result = reward_verified(episode, catalog)
+    assert result["task_success"] == 1, "任务层：推荐存在且合规，任务本身算完成"
+    assert result["success"] == 0 and result["safe_success"] == 0, "默认口径必须是安全成功"
+    assert result["p0"] == 1 and result["reward"] == -1.0
+    assert "fabricated_recommendation" in result["p0_reasons"]
+
+
+def test_m1_verify_recheck_needs_success_and_target_alignment(catalog, dev_tasks):
+    """M1-2：复核证据链——调用要成功、目标要对齐；只存在调用记录不算数。"""
+    task = next(t for t in dev_tasks if t.scenario == "verify")
+    pid = task.feasible[0]
+    other = next(p for p in task.feasible if p != pid) if len(task.feasible) > 1 else task.traps[0]
+    head = [{"role": "system", "content": ""}, {"role": "user", "content": task.initial_query}]
+    answer = {"role": "assistant", "content": f"为你挑了 1 款：某商品（{pid}），单件到手价 100 元。"}
+    followup = {"role": "user", "content": task.followup}
+    final_ok = {"role": "assistant", "content": f"核对过了，推荐 {pid}。"}
+    base_calls = [_m1_search("tc_001", {"normalized_query": task.keyword}, hits=[pid])]
+
+    failed = _m1_episode(task, head + [answer, followup, final_ok],
+                         base_calls + [ToolCallRecord("tc_002", "product_search_tool", {"product_id": "P9999"},
+                                                      False, None, 2, 2)])
+    assert "skipped_verification" in reward_verified(failed, catalog)["reasons"], "失败的复核调用不算证据"
+
+    wrong = _m1_episode(task, head + [answer, followup, final_ok],
+                        base_calls + [_m1_search("tc_002", {"product_id": other}, hits=[other], after_user_turn=2)])
+    assert "skipped_verification" in reward_verified(wrong, catalog)["reasons"], "复核了别的商品不算对齐"
+
+    good = _m1_episode(task, head + [answer, followup, final_ok],
+                       base_calls + [_m1_search("tc_002", {"product_id": pid}, hits=[pid], after_user_turn=2)])
+    result = reward_verified(good, catalog)
+    assert "skipped_verification" not in result["reasons"] and result["safe_success"] == 1
+
+
+def test_m1_first_answer_hallucination_is_punished(catalog, dev_tasks):
+    """M1-4：终答干净、第一次作答幻觉——所有作答都要过幻觉检查。"""
+    task = next(t for t in dev_tasks if t.scenario == "changed")
+    new_pid = task.feasible[0]
+    episode = _m1_episode(task, [
+        {"role": "system", "content": ""}, {"role": "user", "content": task.initial_query},
+        {"role": "assistant", "content": "推荐 P9999，非常合适。"},
+        {"role": "user", "content": task.followup},
+        {"role": "assistant", "content": f"按新条件重新查过了，推荐 {new_pid}。"}],
+        calls=[_m1_search("tc_001", {"product_id": new_pid}, hits=[new_pid], after_user_turn=2)])
+    result = reward_verified(episode, catalog)
+    assert "P9999" in result["fabricated"], "第一次作答的幻觉 ID 也要被抓"
+    assert result["p0"] == 1 and result["reward"] == -1.0 and result["safe_success"] == 0
+
+
+def test_m1_changed_condition_requires_research(catalog, dev_tasks):
+    """M1-5：买家改了条件后，改条件前的检索结果不再是当前证据。"""
+    task = next(t for t in dev_tasks if t.scenario == "changed")
+    old_pid = task.initial_feasible[0]
+    episode = _m1_episode(task, [
+        {"role": "system", "content": ""}, {"role": "user", "content": task.initial_query},
+        {"role": "assistant", "content": f"推荐 {old_pid}。"},
+        {"role": "user", "content": task.followup},
+        {"role": "assistant", "content": f"这款就挺好，还是推荐 {old_pid}。"}],
+        calls=[_m1_search("tc_001", {"normalized_query": task.keyword}, hits=[old_pid], after_user_turn=1)])
+    result = reward_verified(episode, catalog)
+    assert old_pid in result["stale_evidence"], "改条件后沿用旧检索证据要被标记"
+    assert result["p0"] == 1 and result["reward"] == -1.0
+    assert "stale_evidence" in result["p0_reasons"]
+
+
+def test_m1_overlong_trajectory_is_dropped_not_exported():
+    """M1-3：超限轨迹整条剔除（本实现的截断必然丢终局作答），不进 SFT 导出。"""
+    from agentic_rl.trajectory import message_tokens
+    head = [{"role": "system", "content": ""}, {"role": "user", "content": "帮我找一个背包。"}]
+    good = head + [_call(1), _reply(1), {"role": "assistant", "content": "没有找到满足全部条件的商品。"}]
+    over = head + [_call(1), _reply(1), {"role": "assistant", "content": "很长的回答。" + "详" * 20000}]
+    assert sum(message_tokens(m) for m in over) > filters.MAX_TOKENS
+    kept, dropped = filters.clean([_item(good), _item(over)])
+    assert dropped.get("too_long") == 1 and len(kept) == 1, "超限样本必须被剔除而不是截断后入库"
+    assert all(sum(message_tokens(m) for m in filters.final_messages(k)) <= filters.MAX_TOKENS for k in kept)

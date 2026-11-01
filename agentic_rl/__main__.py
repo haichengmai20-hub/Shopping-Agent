@@ -67,9 +67,11 @@ def run_real(out: Path) -> dict:
 
     kept, dropped = filters.clean(sft_scored)
     (out / "sft").mkdir(exist_ok=True)
-    trajectory.write_jsonl([trajectory.to_record(k["episode"], {"verified": k["verified"]}) for k in kept],
+    # M1-3：SFT 导出与 token 统计统一消费 filters.final_messages 的同一版本消息
+    trajectory.write_jsonl([trajectory.to_record(k["episode"], {"verified": k["verified"]},
+                                                 messages=filters.final_messages(k)) for k in kept],
                            out / "sft" / "rule_demonstrations.jsonl")
-    tokens = [trajectory.to_record(k["episode"])["tokens_total"] for k in kept]
+    tokens = [trajectory.to_record(k["episode"], messages=filters.final_messages(k))["tokens_total"] for k in kept]
     sft_stats = {"source": "careful 规则策略在训练集上的真实轨迹", "input": len(sft_scored), "kept": len(kept),
                  "dropped": dropped, "kept_by_scenario": {s: sum(k["episode"].task.scenario == s for k in kept)
                                                           for s in sorted({k["episode"].task.scenario for k in kept})},

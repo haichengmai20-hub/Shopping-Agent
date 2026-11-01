@@ -29,7 +29,9 @@ def _rate(items, predicate) -> float | None:
 
 def summarize(scored: list[dict]) -> dict:
     n = len(scored)
+    # M1-1（2026-11-01）：success 默认口径 = 安全成功（任务成功且无 P0）；task_success 单列作旧口径。
     successes = sum(s["verified"]["success"] for s in scored)
+    task_successes = sum(s["verified"]["task_success"] for s in scored)
     by_scenario = defaultdict(list)
     for s in scored:
         by_scenario[s["episode"].task.scenario].append(s)
@@ -44,6 +46,7 @@ def summarize(scored: list[dict]) -> dict:
         "n": n,
         "success": round(successes / n, 4) if n else None,
         "success_ci95": wilson(successes, n),
+        "task_success": round(task_successes / n, 4) if n else None,
         "verified_reward_mean": round(statistics.fmean(v), 4) if n else None,
         "tutorial_reward_mean": round(statistics.fmean(t), 4) if n else None,
         "reward_correlation": corr,
@@ -57,15 +60,18 @@ def summarize(scored: list[dict]) -> dict:
         "avg_assistant_turns": round(statistics.fmean(s["episode"].assistant_turns for s in scored), 3) if n else None,
         "avg_tool_calls": round(statistics.fmean(len(s["episode"].calls) for s in scored), 3) if n else None,
         "terminations": dict(Counter(s["episode"].termination for s in scored)),
-        "failure_reasons": dict(Counter(r for s in scored for r in s["verified"]["reasons"])),
+        "failure_reasons": dict(Counter(r for s in scored for r in s["verified"]["reasons"])
+                                + Counter(p for s in scored for p in s["verified"].get("p0_reasons", []))),
         "by_scenario": {name: round(sum(s["verified"]["success"] for s in items) / len(items), 4)
                         for name, items in sorted(by_scenario.items())},
+        "by_scenario_task": {name: round(sum(s["verified"]["task_success"] for s in items) / len(items), 4)
+                             for name, items in sorted(by_scenario.items())},
     }
 
 
 def markdown_table(results: dict, split: str) -> str:
     """results: 策略名 → summarize() 的结果。"""
-    cols = [("成功率", "success"), ("95% 区间", "success_ci95"), ("补强版奖励", "verified_reward_mean"),
+    cols = [("安全成功", "success"), ("任务成功", "task_success"), ("95% 区间", "success_ci95"), ("补强版奖励", "verified_reward_mean"),
             ("原版奖励", "tutorial_reward_mean"), ("两版相关", "reward_correlation"), ("陷阱推荐率", "trap_rate"),
             ("多余追问率", "unnecessary_question_rate"), ("漏问率", "missed_clarification_rate"),
             ("平均助手轮数", "avg_assistant_turns")]
