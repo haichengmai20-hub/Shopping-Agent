@@ -1,0 +1,27 @@
+{
+  "admission": {
+    "admitted": 72,
+    "rejected": 0,
+    "by_family": {
+      "order_place": 24,
+      "order_out_of_stock": 24,
+      "order_cancel": 24
+    },
+    "rejected_reasons": []
+  },
+  "witness": {
+    "total": 72,
+    "passed": 72
+  },
+  "replay": {
+    "pairs": 120,
+    "consistent": 120,
+    "mismatches": []
+  },
+  "concurrency": {
+    "copies": 8,
+    "task_id": "order-order_place-001",
+    "identical_final_state": true,
+    "invariants_clean": true
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "copies": 8,
+  "task_id": "order-order_place-001",
+  "identical_final_state": true,
+  "invariants_clean": true
+}

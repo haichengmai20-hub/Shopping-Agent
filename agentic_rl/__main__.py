@@ -89,6 +89,81 @@ def run_real(out: Path) -> dict:
     return {"tasks": task_summary, "baselines": results, "sft": sft_stats, "manifest": manifest}
 
 
+def run_orders(out: Path) -> dict:
+    """M2（2026-11-01）：E1 任务准入 + 见证轨迹 + 重放一致性（≥100 对）+ 8 副本并发隔离。CPU、0 模型调用。"""
+    import hashlib
+    import time as _time
+    import zlib
+
+    from agentic_rl import order_tasks
+    from agentic_rl.catalog import default_catalog
+    from agentic_rl.env import SearchBackend
+    from agentic_rl.order_env import OrderCarefulPolicy, OrderEnvironment, run_order_episode, verify_order_episode
+
+    out.mkdir(parents=True, exist_ok=True)
+    started = _time.time()
+    catalog = default_catalog()
+    backend = SearchBackend(catalog)
+
+    records, rejected = order_tasks.generate_order_pool(catalog)
+    admission = order_tasks.save_pool(records, rejected, out)
+
+    witness_rows = []
+    for item in records:
+        task, snapshot = item["task"], item["snapshot"]
+        env = run_order_episode(task, snapshot, catalog, seed=zlib.crc32(task.task_id.encode()) % 1000, backend=backend)
+        verdict = verify_order_episode(env)
+        witness_rows.append({"task_id": task.task_id, "family": task.family, "passed": verdict["passed"],
+                             "steps": env.steps, "final_inventory": env.inventory, "orders": env.orders})
+    with open(out / "witness.jsonl", "w", encoding="utf-8") as fh:
+        for row in witness_rows:
+            fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+    replay = {"pairs": 0, "consistent": 0, "mismatches": []}
+    for item in records[:30]:
+        for seed in (0, 1, 2, 3):
+            runs = []
+            for _ in range(2):
+                env = run_order_episode(item["task"], item["snapshot"], catalog, seed=seed, backend=backend)
+                digest = hashlib.sha256(
+                    json.dumps(env.messages, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
+                state = json.dumps({"inventory": env.inventory, "orders": env.orders}, sort_keys=True)
+                runs.append((digest, state))
+            replay["pairs"] += 1
+            if runs[0] == runs[1]:
+                replay["consistent"] += 1
+            else:
+                replay["mismatches"].append({"task_id": item["task"].task_id, "seed": seed})
+    (out / "replay_report.json").write_text(json.dumps(replay, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    item = records[0]
+    envs = [OrderEnvironment(catalog, backend) for _ in range(8)]
+    policies = [OrderCarefulPolicy(item["task"]) for _ in range(8)]
+    for env in envs:
+        env.reset(item["task"], item["snapshot"], seed=7)
+    done = [False] * 8
+    while not all(done):
+        for i, (env, policy) in enumerate(zip(envs, policies)):
+            if not done[i]:
+                env.step(policy.act(env.messages))
+                done[i] = env.terminated or env.truncated
+    states = [json.dumps(env.state_for_verifier(), sort_keys=True, default=str) for env in envs]
+    concurrency = {"copies": 8, "task_id": item["task"].task_id,
+                   "identical_final_state": len(set(states)) == 1,
+                   "invariants_clean": all(not env.invariant_checks() for env in envs)}
+    (out / "concurrency_report.json").write_text(json.dumps(concurrency, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    summary = {"admission": admission,
+               "witness": {"total": len(witness_rows), "passed": sum(r["passed"] for r in witness_rows)},
+               "replay": replay, "concurrency": concurrency}
+    (out / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+    manifest = {"command": "python -m agentic_rl orders --out " + str(out.relative_to(ROOT)),
+                "source": _fingerprint(), "python": sys.version.split()[0], "platform": platform.platform(),
+                "total_s": round(_time.time() - started, 1), "model_calls": 0}
+    (out / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+    return summary
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="agentic_rl")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -99,6 +174,8 @@ def main(argv=None) -> int:
     scenario.add_argument("--out", type=Path, default=ROOT / "agentic_rl" / "runs" / "qwen3-8b-gspo-20261020")
     check = sub.add_parser("check", help="核对推演产物之间的数字一致性（改过生成器或叙述后必跑）")
     check.add_argument("--runs", type=Path, default=ROOT / "agentic_rl" / "runs" / "qwen3-8b-gspo-20261020")
+    orders = sub.add_parser("orders", help="E1 下单环境：任务准入、见证轨迹、重放与并发验收（CPU，0 模型调用）")
+    orders.add_argument("--out", type=Path, default=ROOT / "eval" / "verification" / "agentic-rl-m2-20261101")
     args = parser.parse_args(argv)
     if args.command == "real":
         summary = run_real(args.out.resolve())
@@ -109,6 +186,13 @@ def main(argv=None) -> int:
     elif args.command == "check":
         from agentic_rl.check_scenario import main as check_main
         return check_main(["--runs", str(args.runs.resolve())])
+    elif args.command == "orders":
+        summary = run_orders(args.out.resolve())
+        print(json.dumps({"admitted": summary["admission"]["admitted"],
+                          "replay_consistent": summary["replay"]["consistent"],
+                          "replay_pairs": summary["replay"]["pairs"],
+                          "concurrency_identical": summary["concurrency"]["identical_final_state"]},
+                         ensure_ascii=False))
     return 0
 
 

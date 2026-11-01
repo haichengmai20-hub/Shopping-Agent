@@ -1,0 +1,10 @@
+{
+  "admitted": 72,
+  "rejected": 0,
+  "by_family": {
+    "order_place": 24,
+    "order_out_of_stock": 24,
+    "order_cancel": 24
+  },
+  "rejected_reasons": []
+}

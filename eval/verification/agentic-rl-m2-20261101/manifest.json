@@ -1,0 +1,31 @@
+{
+  "command": "python -m agentic_rl orders --out eval\\verification\\agentic-rl-m2-20261101",
+  "source": {
+    "sha256": "d250c008937c090bdf73a8a7f7ba8bb2eedb97c07b3c1bd6707a4f4a15f89028",
+    "files": [
+      "agentic_rl\\__init__.py",
+      "agentic_rl\\__main__.py",
+      "agentic_rl\\catalog.py",
+      "agentic_rl\\check_scenario.py",
+      "agentic_rl\\env.py",
+      "agentic_rl\\evaluate.py",
+      "agentic_rl\\filters.py",
+      "agentic_rl\\gspo.py",
+      "agentic_rl\\order_env.py",
+      "agentic_rl\\order_tasks.py",
+      "agentic_rl\\phrasing.py",
+      "agentic_rl\\policies.py",
+      "agentic_rl\\reward.py",
+      "agentic_rl\\scenario.py",
+      "agentic_rl\\tasks.py",
+      "agentic_rl\\trajectory.py",
+      "agentic_rl\\user_sim.py",
+      "data\\catalog-v3.jsonl"
+    ],
+    "git_head": "f4b7e26"
+  },
+  "python": "3.11.0",
+  "platform": "Windows-10-10.0.26200-SP0",
+  "total_s": 39.2,
+  "model_calls": 0
+}
