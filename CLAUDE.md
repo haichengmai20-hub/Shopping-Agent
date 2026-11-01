@@ -217,6 +217,7 @@ macOS 没有 GNU 的 `timeout` 命令，不要在命令前加它（2026-10-19 �
 3. 训练推演（2026-10-20 完成）：用户定了四个边界——训「澄清、检索、补证」；Qwen3-8B + 4×A800；环境建在真实业务层上的轻量环境（复用线上检索工具，Agent 循环、模拟用户、奖励是平行模块）；代码放新建的顶层 `agentic_rl/`，不改 `app/`。
    - 真实运行（CPU，0 次模型调用）：`python -m agentic_rl real`，证据在 `eval/verification/agentic-rl-env-20261019/`。原版奖励和真实成功率只有弱相关（trust_filter 推荐 37% 陷阱商品仍得 1.01；train 四策略合并 1280 条 r≈0.24；held-out 规则成功率 0.10 时原版仍有 1.02）；careful 规则 dev 100%、held-out 10%（认不出城市名、剥不掉 B 套开场白，中文数字能解析；120 题 108 题没推荐）；训练环境的召回只走关键词兜底 `keyword_2gram`（按 ID 核对走精确查找），没接 embedding 和 rerank；SFT 示范 320 留 319；序列级 clip 0.2 不触发，3e-4/4e-4 在演示噪声下裁掉 75%–93%。
    - 推演：`python -m agentic_rl scenario`，产物在 `agentic_rl/runs/qwen3-8b-gspo-20261020/`（来源见 `PROVENANCE.md`）。run-01 held-out 0.31（结果一般），归因三条：奖励漏洞、clip 等于没开、SFT 分布窄；run-02 只改这三处，0.58。run-02 的 `pg_clipfrac` 约 0.15 是假设（倒推每 token 漂移约 0.007），已写进归因。
+   - 产物形态（2026-10-23 补齐，对齐 Code-R1 的 runs 目录）：两轮的启动脚本、展开配置（`*.resolved.yaml`）、多轮工具与模拟用户声明（`tools.yaml`、`user_sim.yaml`，适配类 `verl_tools.py` 待实跑）；`logs/<run>/` 的每步指标、validation、控制台开头；每指标一张 PNG 曲线（重生成要 matplotlib）；checkpoint 清单；wandb 离线目录；rollout 样本；任务与 SFT 数据的真实 sha256 清单；评测协议与逐题记录；`env/` 的节点环境（推演设定）加真实本机探针日志。改过生成器、产物或 06 的数字后，必跑 `python -m agentic_rl check` 核对一致性。
    - 学习文档 [06](docs/学习路线/06_训练推演_澄清检索补证.md)，单测 `tests/test_agentic_rl.py` 9 个（含「归因里的 clip 假设与 run-02 对得上」「成本只在成功时扣」）。
 4. 推演完成后，反过来补 01–05 和 docxs 对照表：06 第九节已列出要补回 02–05 的四条收获，还没写进各篇。
 5. 2026-10-21 用户拍板：grilling 压力测试带回的 7 个取舍全部按推荐执行，并要求「从全局最优和一致的角度做，不陷入局部最优或局部幻觉」。已落地：

@@ -95,6 +95,8 @@ def main(argv=None) -> int:
     scenario = sub.add_parser("scenario", help="生成训练推演产物（需要先跑 real）")
     scenario.add_argument("--evidence", type=Path, default=ROOT / "eval" / "verification" / "agentic-rl-env-20261019")
     scenario.add_argument("--out", type=Path, default=ROOT / "agentic_rl" / "runs" / "qwen3-8b-gspo-20261020")
+    check = sub.add_parser("check", help="核对推演产物之间的数字一致性（改过生成器或叙述后必跑）")
+    check.add_argument("--runs", type=Path, default=ROOT / "agentic_rl" / "runs" / "qwen3-8b-gspo-20261020")
     args = parser.parse_args(argv)
     if args.command == "real":
         summary = run_real(args.out.resolve())
@@ -102,6 +104,9 @@ def main(argv=None) -> int:
     elif args.command == "scenario":
         from agentic_rl.scenario import build
         build(args.evidence.resolve(), args.out.resolve())
+    elif args.command == "check":
+        from agentic_rl.check_scenario import main as check_main
+        return check_main(["--runs", str(args.runs.resolve())])
     return 0
 
 

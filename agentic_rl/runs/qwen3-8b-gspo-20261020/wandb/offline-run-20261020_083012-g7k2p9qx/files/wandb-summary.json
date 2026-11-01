@@ -1,0 +1,14 @@
+{
+  "step": 150,
+  "critic/score/mean": 1.0045,
+  "monitor/tutorial_reward_mean": 1.0045,
+  "monitor/verified_success_mean": 0.7935,
+  "monitor/trap_recommend_rate": 0.3397,
+  "actor/kl_loss": 0.086,
+  "actor/pg_clipfrac": 0.0,
+  "actor/entropy": 0.3826,
+  "response_length/mean": 751.4,
+  "env/assistant_turns_mean": 3.252,
+  "timing_s/step": 642.9,
+  "training/global_step": 150
+}

@@ -1,4 +1,4 @@
-# 评测结果（固定协议：dev 80 题选 checkpoint，held-out 120 题只评最终 checkpoint 一次）
+# 评测结果（协议见 protocol.md：dev 80 题选 checkpoint，held-out 120 题只评最终 checkpoint 一次）
 
 成功率按补强版奖励核验（推荐商品逐件核对到手价、配送、库存、材质；缺条件先问；复核先查）。
 
@@ -19,3 +19,4 @@
 - run-02 对 run-01 的提升（0.31 → 0.58）区间不重叠；对规则基线的提升来自 held-out 换了说法后的泛化。
 - 三行消融是单因素假设，用来说明三处为什么都要改；不是任何真实运行，真实归因要真跑消融（三组约 ¥3,200）。
 - 规则基线两行是 `python -m agentic_rl real` 真实跑出来的；其余是推演参数模型的输出。
+- 逐题记录在 dev/、heldout/ 下（合成），计数与上表一致，`python -m agentic_rl check` 核对。

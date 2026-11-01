@@ -1,0 +1,10 @@
+# 训练数据清单（任务文件是真实生成的，带 sha256；节点侧的 parquet 转换待实跑，不伪造哈希）
+# 本地生成：python -m agentic_rl real --out eval/verification/agentic-rl-env-20261019
+0b5028936aa2478b853523d49f2e7b9fe36b88a49044bf0b9d943dd1c94b337e  tasks/tasks_dev.jsonl  # 80 行
+ad66c0d6e9ed64cdc53b1dd2f49bed4bd4183c6860a5e941f865e2c7cff3ed96  tasks/tasks_heldout.jsonl  # 120 行
+e73d5145caa0522209e37383197390871a89c73ef74d0f173b1fcd81013c3052  tasks/tasks_train.jsonl  # 320 行
+02ae5339c370aec8ad1c0e9877a72779b587b1e285f991390aa29716832f2d07  sft/rule_demonstrations.jsonl  # 319 行
+
+# 节点侧（待实跑）：tasks_train.jsonl → train.parquet（列 prompt / data_source / extra_info，
+# extra_info 里带任务视图与标准答案，供 reward_verified 在判分端独立核验）；
+# run-02 的 SFT 数据 = 319 条 A 套示范 + C 套改写（改写词表真跑前另写，与 A、B 都不重叠）。

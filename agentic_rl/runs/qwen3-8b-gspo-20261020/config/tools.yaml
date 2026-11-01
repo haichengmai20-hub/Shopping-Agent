@@ -1,0 +1,45 @@
+# verl 多轮工具声明（推演形态）。真跑前需要按 verl.tools.base_tool.BaseTool 实现
+# agentic_rl/verl_tools.py 里的两个适配类（把工具结果包成 execute 的返回契约）；见 PROVENANCE「已知差距」。
+# tool_schema 与 agentic_rl/env.py 的 TOOL_SCHEMAS 一致。
+tools:
+  - class_name: agentic_rl.verl_tools.ProductSearchTool
+    config:
+      backend: in_memory_catalog_v3
+      session_prefix: rl
+    tool_schema:
+      type: function
+      function:
+        name: product_search_tool
+        description: 检索商品目录；传 ship_to 时商品卡附单件到手价 landed_price。price_max_major 只比较单件商品价。
+        parameters:
+          type: object
+          properties:
+            normalized_query: {type: string}
+            ship_to: {type: string, enum: [CN, US, JP, SG, EU]}
+            price_max_major: {type: number}
+            target_currency: {type: string}
+            top_k: {type: integer}
+            excluded_material_tags: {type: array, items: {type: string}}
+            product_id: {type: string}
+            sku_id: {type: string}
+  - class_name: agentic_rl.verl_tools.ClarifyFormTool
+    config:
+      store: in_memory
+    tool_schema:
+      type: function
+      function:
+        name: show_shopping_form
+        description: 向买家展示澄清表单；展示后结束本轮，等待买家提交，不得按默认值继续检索。
+        parameters:
+          type: object
+          required: [title, questions]
+          properties:
+            title: {type: string}
+            questions:
+              type: array
+              items:
+                type: object
+                properties:
+                  id: {type: string}
+                  type: {type: string}
+                  label: {type: string}

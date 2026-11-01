@@ -1,0 +1,7 @@
+{"step": 0, "val/reward/mean": 0.62, "scenario/val_n_pass": 50, "scenario/val_pass_rate": 0.62}
+{"step": 25, "val/reward/mean": 0.6805, "scenario/val_n_pass": 54, "scenario/val_pass_rate": 0.6805}
+{"step": 50, "val/reward/mean": 0.7, "scenario/val_n_pass": 56, "scenario/val_pass_rate": 0.7}
+{"step": 75, "val/reward/mean": 0.7598, "scenario/val_n_pass": 61, "scenario/val_pass_rate": 0.7598}
+{"step": 100, "val/reward/mean": 0.7891, "scenario/val_n_pass": 63, "scenario/val_pass_rate": 0.7891}
+{"step": 125, "val/reward/mean": 0.8173, "scenario/val_n_pass": 65, "scenario/val_pass_rate": 0.8173}
+{"step": 150, "val/reward/mean": 0.86, "scenario/val_n_pass": 69, "scenario/val_pass_rate": 0.86}

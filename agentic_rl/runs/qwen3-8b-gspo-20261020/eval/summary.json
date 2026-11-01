@@ -1,0 +1,121 @@
+{
+  "protocol": "eval/protocol.md",
+  "n_dev": 80,
+  "n_heldout": 120,
+  "real": {
+    "careful": {
+      "n": 120,
+      "success": 0.1,
+      "success_ci95": [
+        0.0581,
+        0.1667
+      ],
+      "verified_reward_mean": 0.095,
+      "tutorial_reward_mean": 1.022,
+      "reward_correlation": -0.1667,
+      "p0_rate": 0.0,
+      "violation_rate": 0.0,
+      "trap_rate": 0.0,
+      "unnecessary_question_rate": 1.0,
+      "missed_clarification_rate": 0.0,
+      "no_result_honesty": 1.0,
+      "verify_compliance": 0.0,
+      "avg_assistant_turns": 4.55,
+      "avg_tool_calls": 2.2,
+      "terminations": {
+        "answered": 120
+      },
+      "failure_reasons": {
+        "no_recommendation": 108,
+        "skipped_verification": 18
+      },
+      "by_scenario": {
+        "changed": 0.0,
+        "complete": 0.0,
+        "missing_slot": 0.0,
+        "no_result": 1.0,
+        "verify": 0.0
+      }
+    },
+    "trust_filter": {
+      "n": 120,
+      "success": 0.1,
+      "success_ci95": [
+        0.0581,
+        0.1667
+      ],
+      "verified_reward_mean": 0.095,
+      "tutorial_reward_mean": 1.022,
+      "reward_correlation": -0.1667,
+      "p0_rate": 0.0,
+      "violation_rate": 0.0,
+      "trap_rate": 0.0,
+      "unnecessary_question_rate": 1.0,
+      "missed_clarification_rate": 0.0,
+      "no_result_honesty": 1.0,
+      "verify_compliance": 0.0,
+      "avg_assistant_turns": 4.55,
+      "avg_tool_calls": 2.2,
+      "terminations": {
+        "answered": 120
+      },
+      "failure_reasons": {
+        "no_recommendation": 108,
+        "skipped_verification": 18
+      },
+      "by_scenario": {
+        "changed": 0.0,
+        "complete": 0.0,
+        "missing_slot": 0.0,
+        "no_result": 1.0,
+        "verify": 0.0
+      }
+    }
+  },
+  "rehearsal": {
+    "qwen3_8b_prompt_only": 0.19,
+    "sft_only_A": 0.24,
+    "run-01": {
+      "dev_success": 0.86,
+      "heldout_success": 0.31,
+      "heldout_trap": 0.33,
+      "heldout_unneeded_q": 0.42,
+      "dev_ci": [
+        0.77,
+        0.92
+      ],
+      "heldout_ci": [
+        0.23,
+        0.4
+      ]
+    },
+    "run-02": {
+      "dev_success": 0.93,
+      "heldout_success": 0.58,
+      "heldout_trap": 0.06,
+      "heldout_unneeded_q": 0.12,
+      "dev_ci": [
+        0.84,
+        0.97
+      ],
+      "heldout_ci": [
+        0.49,
+        0.67
+      ]
+    }
+  },
+  "ablations_assumed": {
+    "只换奖励（补强版）": {
+      "heldout": 0.45,
+      "trap": 0.09
+    },
+    "只换 clip（3e-4/4e-4）": {
+      "heldout": 0.34,
+      "trap": 0.31
+    },
+    "只加 C 改写": {
+      "heldout": 0.38,
+      "trap": 0.3
+    }
+  }
+}

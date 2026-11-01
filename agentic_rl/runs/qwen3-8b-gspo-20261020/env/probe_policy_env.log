@@ -1,0 +1,5 @@
+# 真实运行（生成推演时在本机执行；python -m agentic_rl scenario 内嵌）
+# 目的：证明「策略循环 → 工具（线上真实检索）→ 奖励」链路可执行，与训练推演共用同一套代码。
+dev-0000 scenario=missing_slot turns=4 calls=2 termination=answered verified_reward=1.0 reasons=[]
+dev-0001 scenario=complete turns=2 calls=1 termination=answered verified_reward=1.0 reasons=[]
+OK: 2/2 episodes completed

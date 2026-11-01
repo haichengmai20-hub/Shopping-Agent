@@ -1,0 +1,8 @@
+# verl 多轮的交互方声明（推演形态）：规则化模拟用户，隐藏条件被问到才回答。
+# 适配类同样待实跑前实现；行为契约见 agentic_rl/user_sim.py。
+interaction:
+  - class_name: agentic_rl.verl_tools.SimulatedUserInteraction
+    config:
+      module: agentic_rl.user_sim
+      max_user_turns: 4
+      answer_style: per_task

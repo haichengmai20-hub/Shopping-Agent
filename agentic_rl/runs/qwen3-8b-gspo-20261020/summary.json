@@ -1,6 +1,7 @@
 {
   "model": "Qwen/Qwen3-8B",
   "machine": "4×A800 80GB",
+  "node": "a800-4x-node12",
   "price_per_gpu_hour_cny": 10.0,
   "runs": {
     "run-01": {
@@ -15,6 +16,7 @@
       "sft_data": "rule_demos_A",
       "final_train_reward": 1.0045,
       "final_trap_rate": 0.3397,
+      "final_dev_success": 0.86,
       "eval": {
         "dev_success": 0.86,
         "heldout_success": 0.31,
@@ -42,13 +44,14 @@
       "sft_data": "rule_demos_A+C_rewrites",
       "final_train_reward": 0.8637,
       "final_trap_rate": 0.0526,
+      "final_dev_success": 0.93,
       "eval": {
         "dev_success": 0.93,
         "heldout_success": 0.58,
         "heldout_trap": 0.06,
         "heldout_unneeded_q": 0.12,
         "dev_ci": [
-          0.85,
+          0.84,
           0.97
         ],
         "heldout_ci": [
@@ -57,5 +60,27 @@
         ]
       }
     }
-  }
+  },
+  "curve_notes": [
+    "run-01_score.png",
+    "run-01_verified_success.png",
+    "run-01_trap_rate.png",
+    "run-01_kl_loss.png",
+    "run-01_pg_clipfrac.png",
+    "run-01_entropy.png",
+    "run-01_response_length.png",
+    "run-01_assistant_turns.png",
+    "run-01_timing_step.png",
+    "run-01_val_dev.png",
+    "run-02_score.png",
+    "run-02_verified_success.png",
+    "run-02_trap_rate.png",
+    "run-02_kl_loss.png",
+    "run-02_pg_clipfrac.png",
+    "run-02_entropy.png",
+    "run-02_response_length.png",
+    "run-02_assistant_turns.png",
+    "run-02_timing_step.png",
+    "run-02_val_dev.png"
+  ]
 }
