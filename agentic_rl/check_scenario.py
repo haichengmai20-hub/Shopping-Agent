@@ -87,8 +87,20 @@ def check(runs_dir: Path, repo: Path) -> list[str]:
             for key in ("critic/score/mean", "monitor/trap_recommend_rate", "actor/pg_clipfrac"):
                 need(wandb_summary.get(key) == rows[-1][key], f"{name}: wandb summary 的 {key} 与 metrics 末行不一致")
             history = _read_jsonl(mine / "files" / "history.export.jsonl")
-            need(len(history) == spec["steps"] and history[-1]["_step"] == spec["steps"],
-                 f"{name}: wandb history 行数或末步不一致")
+            need(len(history) == spec["steps"] + 1 and history[-1]["_step"] == spec["steps"]
+                 and history[0]["_step"] == 0,
+                 f"{name}: wandb history 行数/首末步不一致（应为 step 0 验证行 + 1..{spec['steps']} 训练行）")
+            # verl 0.6.0 会把验证指标并进同一条 tracker 流：val 步的 history 行必须带
+            # val-core/{data_source}/reward/mean@1 且数值等于 validation.jsonl（四舍五入到 4 位）；
+            # step 0 是 val_before_train 的独立验证行（此时没有训练指标）
+            validation = _read_jsonl(runs_dir / "logs" / name / "validation.jsonl")
+            hist_by_step = {row["_step"]: row for row in history}
+            for vrow in validation:
+                hrow = hist_by_step.get(vrow["step"])
+                need(hrow is not None and hrow.get("val-core/shopping/reward/mean@1") == round(vrow["val/reward/mean"], 4),
+                     f"{name}: wandb history 在 step {vrow['step']} 缺失或数值不等于 validation.jsonl 的 val 指标")
+            need(set(k for k in history[0] if k not in ("_step", "val-core/shopping/reward/mean@1")) == set(),
+                 f"{name}: step 0 行应只有验证指标，不应有训练指标")
 
         manifest = (runs_dir / "checkpoints" / name / "MANIFEST.txt").read_text(encoding="utf-8")
         # checkpoint 的时间戳必须等于「启动时间 + 步数 × 每步秒数」推算的落盘分钟

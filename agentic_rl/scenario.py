@@ -386,16 +386,21 @@ def _svg(rows: list[dict], keys: list[str], title: str) -> str:
     return "\n".join(parts)
 
 
-def _console_head(name: str, spec: dict, rows: list[dict]) -> str:
+def _console_head(name: str, spec: dict, rows: list[dict], validation: list[dict]) -> str:
     start = RUN_START[name].strftime("%Y-%m-%d %H:%M:%S")
+    val_by_step = {v["step"]: round(v["val/reward/mean"], 4) for v in validation}
     lines = ["+ " + _command(name, spec),
              f"{start}\tINFO worker.py:1852 -- Started a local Ray instance. View the dashboard at http://127.0.0.1:8265",
              f"TaskRunner hostname: {NODE}, PID: 48071",
              "initial_seed is set to 42 as `+seed` is null. Please make sure the seed is not used elsewhere.",
              "Max *outstanding* Rollout Requests: 32. To adjust, set `async_dt_worker.max_outstanding_requests`.",
              f"... (配置 pprint 与各 worker 初始化日志从略；完整配置见 ../config/{name}.resolved.yaml) ..."]
+    if 0 in val_by_step:  # verl 训练前先验证并打印（ray_trainer fit 的 val_before_train 路径）
+        lines.append(f"Initial validation metrics: {{'val-core/shopping/reward/mean@1': {val_by_step[0]}}}")
     for row in rows[:5] + [rows[-1]]:
         pairs = " - ".join(f"{key}:{value}" for key, value in row.items() if key != "step")
+        if row["step"] in val_by_step and row["step"] != 0:
+            pairs += f" - val-core/shopping/reward/mean@1:{val_by_step[row['step']]}"
         lines.append(f"step:{row['step']} - {pairs}")
     lines.append(f"... (中间与结尾的 step 行与 logs/{name}/metrics.jsonl 一一对应，从略) ...")
     return "\n".join(lines) + "\n"
@@ -540,7 +545,7 @@ def _probe_log() -> str:
 
 # ---------------------------------------------------------------- wandb、rollouts 与逐题评测
 
-def _wandb(out: Path, name: str, spec: dict, rows: list[dict]) -> None:
+def _wandb(out: Path, name: str, spec: dict, rows: list[dict], validation: list[dict]) -> None:
     run_dir = out / "wandb" / f"offline-run-{RUN_START[name].strftime('%Y%m%d_%H%M%S')}-{WANDB_RUN_IDS[name]}" / "files"
     run_dir.mkdir(parents=True, exist_ok=True)
     low, high = spec["clip"]
@@ -551,11 +556,24 @@ def _wandb(out: Path, name: str, spec: dict, rows: list[dict]) -> None:
                                     "rollout": {"name": {"value": "sglang"}, "mode": {"value": "async"}, "n": {"value": 8}}},
               "trainer": {"total_training_steps": {"value": spec["steps"]}, "experiment_name": {"value": name}}}
     (run_dir / "config.yaml").write_text(_yaml_dump(config) + "\n", encoding="utf-8")
-    summary = dict(rows[-1])
+    # verl 0.6.0 的验证指标写进同一条 tracker 流（键形 val-core/{data_source}/reward/mean@1，
+    # 依据 verl-0.6.0 sdist ray_trainer.py 的 _validate/process_validation_metrics；data_source
+    # 取 "shopping" 为推演自定，真跑时以 parquet 的 data_source 列为准）。
+    val_by_step = {v["step"]: round(v["val/reward/mean"], 4) for v in validation}
+    merged = []
+    if 0 in val_by_step:
+        # verl 的 val_before_train 用 global_step=0 记一条独立 tracker 行（此时还没有训练指标）
+        merged.append({"step": 0, "val-core/shopping/reward/mean@1": val_by_step[0]})
+    for row in rows:
+        item = {k: v for k, v in row.items()}
+        if row["step"] in val_by_step:
+            item["val-core/shopping/reward/mean@1"] = val_by_step[row["step"]]
+        merged.append(item)
+    summary = dict(merged[-1])
     summary["training/global_step"] = spec["steps"]
     (run_dir / "wandb-summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
     with open(run_dir / "history.export.jsonl", "w", encoding="utf-8") as fh:
-        for row in rows:
+        for row in merged:
             fh.write(json.dumps({"_step": row["step"], **{k: v for k, v in row.items() if k != "step"}},
                                 ensure_ascii=False) + "\n")
     # git.commit 留 null：推演时间线里不存在那个时刻的真实提交，写具体 hash 会自相矛盾（wandb 在无 git
@@ -752,10 +770,10 @@ def build(evidence_dir: Path, out: Path) -> None:
         with open(run_log / "validation.jsonl", "w", encoding="utf-8") as fh:
             for row in validation:
                 fh.write(json.dumps(row, ensure_ascii=False) + "\n")
-        (run_log / "console_head.log").write_text(_console_head(name, spec, rows), encoding="utf-8")
+        (run_log / "console_head.log").write_text(_console_head(name, spec, rows, validation), encoding="utf-8")
         (out / "checkpoints" / name / "MANIFEST.txt").write_text(_checkpoint_manifest(name, spec), encoding="utf-8")
         (out / "checkpoints" / name / "latest_checkpointed_iteration.txt").write_text(f"{spec['steps']}\n", encoding="utf-8")
-        _wandb(out, name, spec, rows)
+        _wandb(out, name, spec, rows, validation)
         _rollouts(out, name, spec, rows, train_ids)
         curve_notes += _png_curves(out, name, rows, validation)
         e = spec["eval"]
@@ -848,4 +866,8 @@ def _provenance(evidence: dict) -> str:
 - token 数是按字数估算的，真实训练要用 Qwen3 的 tokenizer 和对话模板重算 loss mask。
 - 曲线重生成需要 matplotlib（`uv pip install matplotlib`）；PNG 已入库，不装也能看。
 - 推演的数字只用来练习「看曲线、做归因、定下一轮」，不能当效果证据。
+- wandb/console 的验证指标键 `val-core/shopping/reward/mean@1` 按 verl 0.6.0 sdist 的
+  `ray_trainer._validate`/`process_validation_metrics` 键形合成（val-core/{{data_source}}/reward/mean@N）；
+  `data_source="shopping"` 是推演自定，真跑以 parquet 的 data_source 列为准；同批还有
+  `val-aux/num_turns/*` 等键未合成（推演不追踪 dev 轮次分布）。
 """

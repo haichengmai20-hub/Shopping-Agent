@@ -27,3 +27,7 @@
 - token 数是按字数估算的，真实训练要用 Qwen3 的 tokenizer 和对话模板重算 loss mask。
 - 曲线重生成需要 matplotlib（`uv pip install matplotlib`）；PNG 已入库，不装也能看。
 - 推演的数字只用来练习「看曲线、做归因、定下一轮」，不能当效果证据。
+- wandb/console 的验证指标键 `val-core/shopping/reward/mean@1` 按 verl 0.6.0 sdist 的
+  `ray_trainer._validate`/`process_validation_metrics` 键形合成（val-core/{data_source}/reward/mean@N）；
+  `data_source="shopping"` 是推演自定，真跑以 parquet 的 data_source 列为准；同批还有
+  `val-aux/num_turns/*` 等键未合成（推演不追踪 dev 轮次分布）。

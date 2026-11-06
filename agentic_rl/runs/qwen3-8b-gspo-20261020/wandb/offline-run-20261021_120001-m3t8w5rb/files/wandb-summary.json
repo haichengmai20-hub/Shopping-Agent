@@ -10,5 +10,6 @@
   "response_length/mean": 698.0,
   "env/assistant_turns_mean": 3.228,
   "timing_s/step": 638.1,
+  "val-core/shopping/reward/mean@1": 0.93,
   "training/global_step": 150
 }
