@@ -82,7 +82,7 @@ def run_real(out: Path) -> dict:
     toy = [gspo.clip_fractions(length, 0.05) for length in (200, 800, 2000)]
     (out / "gspo_toy.json").write_text(json.dumps(toy, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    manifest = {"command": "python -m agentic_rl real --out " + str(out.relative_to(ROOT)), "source": _fingerprint(),
+    manifest = {"command": "python -m agentic_rl real --out " + str(out.relative_to(ROOT)) if out.is_relative_to(ROOT) else str(out), "source": _fingerprint(),
                 "python": sys.version.split()[0], "platform": platform.platform(), "timings": timings,
                 "total_s": round(time.time() - started, 1), "model_calls": 0}
     (out / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -157,7 +157,7 @@ def run_orders(out: Path) -> dict:
                "witness": {"total": len(witness_rows), "passed": sum(r["passed"] for r in witness_rows)},
                "replay": replay, "concurrency": concurrency}
     (out / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
-    manifest = {"command": "python -m agentic_rl orders --out " + str(out.relative_to(ROOT)),
+    manifest = {"command": "python -m agentic_rl orders --out " + str(out.relative_to(ROOT)) if out.is_relative_to(ROOT) else str(out),
                 "source": _fingerprint(), "python": sys.version.split()[0], "platform": platform.platform(),
                 "total_s": round(_time.time() - started, 1), "model_calls": 0}
     (out / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -174,6 +174,9 @@ def main(argv=None) -> int:
     scenario.add_argument("--out", type=Path, default=ROOT / "agentic_rl" / "runs" / "qwen3-8b-gspo-20261020")
     check = sub.add_parser("check", help="核对推演产物之间的数字一致性（改过生成器或叙述后必跑）")
     check.add_argument("--runs", type=Path, default=ROOT / "agentic_rl" / "runs" / "qwen3-8b-gspo-20261020")
+    materialize = sub.add_parser("materialize", help="S2：SFT 多轮样本物化+回放验收（CPU，0 模型调用）")
+    materialize.add_argument("--out", type=Path, default=ROOT / "eval" / "verification" / "agentic-rl-s2-20261106")
+    materialize.add_argument("--limit", type=int, default=None)
     orders = sub.add_parser("orders", help="E1 下单环境：任务准入、见证轨迹、重放与并发验收（CPU，0 模型调用）")
     orders.add_argument("--out", type=Path, default=ROOT / "eval" / "verification" / "agentic-rl-m2-20261101")
     args = parser.parse_args(argv)
@@ -186,6 +189,9 @@ def main(argv=None) -> int:
     elif args.command == "check":
         from agentic_rl.check_scenario import main as check_main
         return check_main(["--runs", str(args.runs.resolve())])
+    elif args.command == "materialize":
+        from agentic_rl.sft_materialize import main as materialize_main
+        return materialize_main(["--out", str(args.out.resolve())] + (["--limit", str(args.limit)] if args.limit else []))
     elif args.command == "orders":
         summary = run_orders(args.out.resolve())
         print(json.dumps({"admitted": summary["admission"]["admitted"],
